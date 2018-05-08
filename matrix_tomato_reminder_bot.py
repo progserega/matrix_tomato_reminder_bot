@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 # A simple chat client for matrix.
@@ -28,6 +28,7 @@ import config as conf
 
 client = None
 log = None
+data={}
 
 
 def save_data(data):
@@ -39,12 +40,17 @@ def save_data(data):
     log.error("open(%s) for writing"%conf.data_file)
     return False
     
-  pickle.dump(data,data_file)
-  data_file.close()
+  try:
+    pickle.dump(data,data_file)
+    data_file.close()
+  except:
+    log.error("pickle.dump to '%s'"%conf.data_file)
+    return False
+  return True
 
 def load_data():
+  global log
   tmp_data_file=conf.data_file
-  data={}
   reset=False
   if os.path.exists(tmp_data_file):
     log.debug("Загружаем файл промежуточных данных: '%s'" % tmp_data_file)
@@ -89,8 +95,11 @@ def process_command(user,room,cmd):
     answer="""!repeat - повторить текущую задачу
 !stop - остановить текущую задачу
 !alarm время текст - напомнить в определённое время и показать текст
+!напоминание время текст - напомнить в определённое время и показать текст
 !ru - russian language
 !en - english language
+!alarms - показать текущие активные напоминания
+!напоминания - показать текущие активные напоминания
 """
     return send_message(room,answer)
 
@@ -102,18 +111,53 @@ def process_command(user,room,cmd):
     cur_data["lang"]="en"
     return send_message(room,"Set language to English")
   
-  # Напоминалки:
+  # Добавить Напоминалки:
   elif re.search('^!*alarm .*', cmd) is not None or \
-    re.search(u'^!*напомни .*', cmd) is not None:
+    re.search('^!*напомни .*', cmd) is not None:
     return process_alarm_cmd(user,room,cmd)
+  
+  # Просмотреть Напоминалки:
+  elif re.search('^!*alarms', cmd) is not None or \
+    re.search('^!*напоминания', cmd) is not None:
+    return process_alarm_list_cmd(user,room,cmd)
   
   return True
 
+
+def process_alarm_list_cmd(user,room,cmd):
+  global data
+  global client
+  global log
+
+  cur_data=data[user][room]
+  log.debug("process_alarm_cmd(%s,%s,%s)"%(user,room,cmd))
+  time_now=time.time()
+  num=0
+  for alarm_timestamp in cur_data["alarms"]:
+    if alarm_timestamp > time_now:
+      num+=1
+  if num==0:
+    send_message(room,"На данный момент для Вас Нет актывных напоминаний")
+  else:
+    html="<p><strong>Я напомню Вам о следующих событиях:</strong></p>\n<ul>\n"
+    for alarm_timestamp in cur_data["alarms"]:
+      if alarm_timestamp > time_now:
+        # Выводим только актуаальные:
+        alarm_string=time.strftime("%Y.%m.%d-%T",time.localtime(alarm_timestamp))
+        html+="<li>%s: %s!</li>\n"%(alarm_string,cur_data["alarms"][alarm_timestamp])
+    html+="</ul>\n<p><em>Надеюсь ничего не забыл :-)</em></p>\n"
+    return send_html(room,html)
+
 def process_alarm_cmd(user,room,cmd):
+  global data
+  global client
+  global log
   cur_data=data[user][room]
   log.debug("process_alarm_cmd(%s,%s,%s)"%(user,room,cmd))
   pars=cmd.split(' ')
   cur_time=0
+  text_index=0
+
   log.debug("pars[1]=%s"%pars[1])
   if pars[1]==u'через' or pars[1]=='via':
     time_tmp=0
@@ -122,19 +166,21 @@ def process_alarm_cmd(user,room,cmd):
     except:
       log.warning("error pars cmd: '%s' at '%s' as time"%(cmd,pars[2]))
       if cur_data["lang"]=="ru":
-        send_message("Не смог распознать в команде '%s' слово '%s' как значение времени"%(cmd,pars[2]))
+        send_message(room,"Не смог распознать в команде '%s' слово '%s' как значение времени"%(cmd,pars[2]))
       else:
-        send_message("error pars cmd: '%s' at '%s' as time"%(cmd,pars[2]))
+        send_message(room,"error pars cmd: '%s' at '%s' as time"%(cmd,pars[2]))
       return False
     factor=1
-    if u"мин" in pars[3] or "min" in pars[3]:
+    if "мин" in pars[3] or "min" in pars[3]:
       factor=60
-    if u"час" in pars[3] or "h" in pars[3]:
+    if "час" in pars[3] or "h" in pars[3]:
       factor=3600
     cur_time=time.time()+int(time_tmp)*factor
     log.debug("factor=%d"%factor)
     log.debug("time_tmp=%d"%int(time_tmp))
-    log.debug("cur_time=",cur_time)
+    log.debug("cur_time=%f"%cur_time)
+    text_index=4
+
   elif pars[1]==u'в' or pars[1]=='in':
     time_tmp=0
     try:
@@ -154,10 +200,13 @@ def process_alarm_cmd(user,room,cmd):
         send_message("error pars cmd: '%s' at '%s' as time"%(cmd,pars[2]))
       return False
     try:
+      alarm_time=0
       if len(time_tmp)==2:
-        cur_time=time.strptime(pars[2], "%H:%M")
+        alarm_time=time.strptime(pars[2], "%H:%M")
       else:
-        cur_time=time.strptime(pars[2], "%H:%M:%S")
+        alarm_time=time.strptime(pars[2], "%H:%M:%S")
+      today = time.localtime()
+      cur_time=time.mktime(time.struct_time(today[:3] + alarm_time[3:]))
     except:
       log.warning("error pars cmd: '%s' at '%s' as time"%(cmd,pars[2]))
       if cur_data["lang"]=="ru":
@@ -165,6 +214,7 @@ def process_alarm_cmd(user,room,cmd):
       else:
         send_message("error pars cmd: '%s' at '%s' as time"%(cmd,pars[2]))
       return False
+    text_index=3
   else:
     if cur_data["lang"]=="ru":
       send_message("Не смог распознать в команде '%s' слово '%s' как предлог"%(cmd,pars[1]))
@@ -177,13 +227,44 @@ def process_alarm_cmd(user,room,cmd):
   print("cur_time=",cur_time)
   #timestamp=time.mktime(cur_time)
   # TODO:
-  alarm_text=pars[3:]
-  cur_data["alarms"][int(cur_time)]=alarm_text
-  if cur_data["lang"]=="ru":
-    return send_message(room,u"Установил напоминание на %s, с текстом: '%s'"%(time.strftime("%Y.%m.%d-%T",time.localtime(cur_time)),alarm_text) )
-  else:
-    return send_message(room,u"set alarm at %s, with text: '%s'"%(time.strftime("%Y.%m.%d-%T",time.localtime(cur_time)),alarm_text) )
+  alarm_text=""
 
+  while text_index < len(pars):
+    alarm_text+=pars[text_index]
+    alarm_text+=" "
+    text_index+=1
+  alarm_text=alarm_text.strip()
+
+  cur_data["alarms"][int(cur_time)]=alarm_text
+  # Сохраняем в файл данных:
+  save_data(data)
+  if cur_data["lang"]=="ru":
+    return send_message(room,"Установил напоминание на %s, с текстом: '%s'"%(time.strftime("%Y.%m.%d-%T",time.localtime(cur_time)),alarm_text) )
+  else:
+    return send_message(room,"set alarm at %s, with text: '%s'"%(time.strftime("%Y.%m.%d-%T",time.localtime(cur_time)),alarm_text) )
+
+
+def send_html(room_id,html):
+  global client
+  global log
+
+  room=None
+  try:
+    room = client.join_room(room_id)
+  except MatrixRequestError as e:
+    print(e)
+    if e.code == 400:
+      log.error("Room ID/Alias in the wrong format")
+      return False
+    else:
+      log.error("Couldn't find room.")
+      return False
+  try:
+    room.send_html(html)
+  except:
+    log.error("Unknown error at send message '%s' to room '%s'"%(html,room_id))
+    return False
+  return True
 
 def send_message(room_id,message):
   global client
@@ -211,15 +292,15 @@ def send_message(room_id,message):
 def on_message(event):
     global client
     global log
-    print(json.dumps(event, indent=4, sort_keys=True,ensure_ascii=False,encoding="utf-8"))
+    print(json.dumps(event, indent=4, sort_keys=True,ensure_ascii=False))
     if event['type'] == "m.room.member":
         if event['membership'] == "join":
             print("{0} joined".format(event['content']['displayname']))
     elif event['type'] == "m.room.message":
         if event['content']['msgtype'] == "m.text":
-            print("{0}: {1}".format(event['sender'], event['content']['body'].encode('utf8')))
+            print("{0}: {1}".format(event['sender'], event['content']['body']))
             if process_command(event['sender'], event['room_id'],event['content']['body']) == False:
-              log.error("error process command: '%s'"%event['content']['body'].encode('utf8'))
+              log.error("error process command: '%s'"%event['content']['body'])
               return False
     else:
       print(event['type'])
@@ -228,7 +309,7 @@ def on_message(event):
 def on_event(event):
     print("event:")
     print(event)
-    print(json.dumps(event, indent=4, sort_keys=True,ensure_ascii=False,encoding="utf-8"))
+    print(json.dumps(event, indent=4, sort_keys=True,ensure_ascii=False))
 
 def on_invite(room, event):
     global client
@@ -240,7 +321,7 @@ def on_invite(room, event):
       print(room)
       print("event_data:")
       print(event)
-      print(json.dumps(event, indent=4, sort_keys=True,ensure_ascii=False,encoding="utf-8"))
+      print(json.dumps(event, indent=4, sort_keys=True,ensure_ascii=False))
 
     # Просматриваем сообщения:
     for event_item in event['events']:
@@ -309,7 +390,8 @@ if __name__ == '__main__':
 
   if conf.debug:
     # логирование в консоль:
-    stdout = logging.FileHandler("/dev/stdout")
+    #stdout = logging.FileHandler("/dev/stdout")
+    stdout = logging.StreamHandler(sys.stdout)
     stdout.setFormatter(formatter)
     log.addHandler(stdout)
 

@@ -93,7 +93,7 @@ def process_command(user,room,cmd):
   cur_data=data[user][room]
 
   
-  if cmd == '!?' or cmd == '!h' or cmd == '!help':
+  if cmd == '!?' or cmd.lower() == '!h' or cmd.lower() == '!help':
     answer="""!repeat - повторить текущую задачу
 !stop - остановить текущую задачу
 !alarm время текст - напомнить в определённое время и показать текст
@@ -114,13 +114,13 @@ def process_command(user,room,cmd):
     return send_message(room,"Set language to English")
   
   # Добавить Напоминалки:
-  elif re.search('^!*alarm .*', cmd) is not None or \
-    re.search('^!*напомни .*', cmd) is not None:
+  elif re.search('^!*alarm .*', cmd.lower()) is not None or \
+    re.search('^!*напомни .*', cmd.lower()) is not None:
     return process_alarm_cmd(user,room,cmd)
   
   # Просмотреть Напоминалки:
-  elif re.search('^!*alarms', cmd) is not None or \
-    re.search('^!*напоминания', cmd) is not None:
+  elif re.search('^!*alarms', cmd.lower()) is not None or \
+    re.search('^!*напоминания', cmd.lower()) is not None:
     return process_alarm_list_cmd(user,room,cmd)
   
   return True
@@ -157,31 +157,31 @@ def parse_time(date_timestamp,pars,index,cur_data,cmd,room):
   if date_timestamp==0:
     date_timestamp=time.time()
   i=index
-  if pars[i]=='утром' or pars[i]=='morning':
+  if pars[i].lower()=='утром' or pars[i].lower()=='morning':
     alarm_time=time.strptime(conf.morning, "%H:%M")
     date_time = time.localtime(date_timestamp) 
     cur_time=time.mktime(time.struct_time(date_time[:3] + alarm_time[3:]))
     text_index=i+1
-  elif pars[i]=='в' and pars[i+1]=='обед' or pars[i]=='at' and pars[i+1]=='lunch':
+  elif pars[i].lower()=='в' and pars[i+1].lower()=='обед' or pars[i].lower()=='at' and pars[i+1].lower()=='lunch':
     alarm_time=time.strptime(conf.lunch_break, "%H:%M")
     date_time = time.localtime(date_timestamp) 
     cur_time=time.mktime(time.struct_time(date_time[:3] + alarm_time[3:]))
     text_index=i+2
-  elif pars[i]=='после' and pars[i+1]=='работы' or pars[i]=='after' and pars[i+1]=='work':
+  elif pars[i].lower()=='после' and pars[i+1].lower()=='работы' or pars[i].lower()=='after' and pars[i+1].lower()=='work':
     alarm_time=time.strptime(conf.after_work, "%H:%M")
     date_time = time.localtime(date_timestamp) 
     cur_time=time.mktime(time.struct_time(date_time[:3] + alarm_time[3:]))
     text_index=i+2
-  elif pars[i]=='вечером' or pars[i]=='at' and pars[i+1]=='evening':
+  elif pars[i].lower()=='вечером' or pars[i].lower()=='at' and pars[i+1].lower()=='evening':
     alarm_time=time.strptime(conf.evening, "%H:%M")
     date_time = time.localtime(date_timestamp) 
     cur_time=time.mktime(time.struct_time(date_time[:3] + alarm_time[3:]))
-    if pars[i]=='вечером':
+    if pars[i].lower()=='вечером':
       text_index=i+1
     else:
       text_index=i+2
 
-  elif pars[i]=='в' or pars[i]=='at':
+  elif pars[i].lower()=='в' or pars[i].lower()=='at':
     time_tmp=0
     try:
       time_tmp=pars[i+1].split(':')
@@ -241,14 +241,14 @@ def process_alarm_cmd(user,room,cmd):
 
   log.debug("pars[1]=%s"%pars[1])
   #=====================  через час: =================
-  if pars[1]=='через' and pars[2]=='час' or pars[1]=='via' and pars[2]=='hour':
+  if pars[1].lower()=='через' and pars[2].lower()=='час' or pars[1].lower()=='via' and pars[2].lower()=='hour':
     time_diff=3600
     cur_time=time.time()+time_diff
     log.debug("cur_time=%f"%cur_time)
     text_index=3
     success=True
   #=====================  через часты и мируты: =================
-  elif pars[1]=='через' and len(pars[2].split(':'))>1 or pars[1]=='via' and len(pars[2].split(':'))>1:
+  elif pars[1].lower()=='через' and len(pars[2].split(':'))>1 or pars[1].lower()=='via' and len(pars[2].split(':'))>1:
     time_tmp=0
     try:
       time_tmp=pars[2].split(':')
@@ -283,7 +283,7 @@ def process_alarm_cmd(user,room,cmd):
           send_message(room,"error pars cmd: '%s' at '%s' as time"%(cmd,pars[i+1]))
 
   #=====================  через несколько мирут или часов: =================
-  elif pars[1]=='через' or pars[1]=='via':
+  elif pars[1].lower()=='через' or pars[1].lower()=='via':
     time_tmp=0
     try:
       time_tmp=int(pars[2])
@@ -307,7 +307,7 @@ def process_alarm_cmd(user,room,cmd):
     success=True
 
   #=====================  завтра: =================
-  elif pars[1]=='завтра' or pars[1]=='tomorrow':
+  elif pars[1].lower()=='завтра' or pars[1].lower()=='tomorrow':
     log.debug("tomorrow process")
     cur_time=time.time()+24*3600
     text_index=2
@@ -320,7 +320,7 @@ def process_alarm_cmd(user,room,cmd):
       success=True
 
   #=====================  послезавтра: =================
-  elif pars[1]=='послезавтра':
+  elif pars[1].lower()=='послезавтра':
     cur_time=time.time()+2*24*3600
     text_index=2
     result=parse_time(cur_time,pars,text_index,cur_data,cmd,room)

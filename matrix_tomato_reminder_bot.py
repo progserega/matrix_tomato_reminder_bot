@@ -70,7 +70,7 @@ def load_data():
     reset=True
   if reset:
     log.warning("Сброс промежуточных данных")
-    data["users"]={}
+    data={}
     save_data(data)
   return data
 
@@ -143,12 +143,15 @@ def process_alarm_list_cmd(user,room,cmd):
     for alarm_timestamp in cur_data["alarms"]:
       if alarm_timestamp > time_now:
         # Выводим только актуаальные:
+        print("alarm_timestamp=",alarm_timestamp)
+        print("string=",cur_data["alarms"][alarm_timestamp])
         alarm_string=time.strftime("%Y.%m.%d-%T",time.localtime(alarm_timestamp))
         html+="<li>%s: %s!</li>\n"%(alarm_string,cur_data["alarms"][alarm_timestamp])
     html+="</ul>\n<p><em>Надеюсь ничего не забыл :-)</em></p>\n"
     return send_html(room,html)
 
-def parse_time(date_timestamp,pars,index,cur_data):
+def parse_time(date_timestamp,pars,index,cur_data,cmd,room):
+  log.debug("parse_time(), date_timestamp=%d, pars[index]='%s'"%(date_timestamp,pars[index]))
   if date_timestamp==0:
     date_timestamp=time.time()
   i=index
@@ -159,6 +162,11 @@ def parse_time(date_timestamp,pars,index,cur_data):
     text_index=i+1
   elif pars[i]=='в' and pars[i+1]=='обед' or pars[i]=='at' and pars[i+1]=='lunch':
     alarm_time=time.strptime(conf.lunch_break, "%H:%M")
+    date_time = time.localtime(date_timestamp) 
+    cur_time=time.mktime(time.struct_time(date_time[:3] + alarm_time[3:]))
+    text_index=i+2
+  elif pars[i]=='после' and pars[i+1]=='работы' or pars[i]=='after' and pars[i+1]=='work':
+    alarm_time=time.strptime(conf.after_work, "%H:%M")
     date_time = time.localtime(date_timestamp) 
     cur_time=time.mktime(time.struct_time(date_time[:3] + alarm_time[3:]))
     text_index=i+2
@@ -181,14 +189,14 @@ def parse_time(date_timestamp,pars,index,cur_data):
         send_message(room,"Не смог распознать в команде '%s' слово '%s' как значение времени"%(cmd,pars[i+1]))
       else:
         send_message(room,"error pars cmd: '%s' at '%s' as time"%(cmd,pars[i+1]))
-      return False
+      return None
     if len(time_tmp)<2 or len(time_tmp)>3:
       log.warning("error pars cmd: '%s' at '%s' as time"%(cmd,pars[i+1]))
       if cur_data["lang"]=="ru":
         send_message(room,"Не смог распознать в команде '%s' слово '%s' как значение времени"%(cmd,pars[i+1]))
       else:
         send_message(room,"error pars cmd: '%s' at '%s' as time"%(cmd,pars[i+1]))
-      return False
+      return None
     try:
       alarm_time=0
       if len(time_tmp)==2:
@@ -203,13 +211,20 @@ def parse_time(date_timestamp,pars,index,cur_data):
         send_message(room,"Не смог распознать в команде '%s' слово '%s' как значение времени"%(cmd,pars[i+1]))
       else:
         send_message(room,"error pars cmd: '%s' at '%s' as time"%(cmd,pars[i+1]))
-      return False
+      return None
     text_index=4
+  else:
+    log.warning("error pars cmd: '%s' at '%s' as time"%(cmd,pars[i+1]))
+    if cur_data["lang"]=="ru":
+      send_message(room,"Не смог распознать в команде '%s' слово '%s' как значение времени"%(cmd,pars[i+1]))
+    else:
+      send_message(room,"error pars cmd: '%s' at '%s' as time"%(cmd,pars[i+1]))
+    return None
 
-    data={}
-    data["result_time"]=cur_time
-    data["text_index"]=text_index
-    return data
+  data={}
+  data["result_time"]=cur_time
+  data["text_index"]=text_index
+  return data
 
 def process_alarm_cmd(user,room,cmd):
   global data
@@ -223,8 +238,50 @@ def process_alarm_cmd(user,room,cmd):
   success=False
 
   log.debug("pars[1]=%s"%pars[1])
+  #=====================  через час: =================
+  if pars[1]=='через' and pars[2]=='час' or pars[1]=='via' and pars[2]=='hour':
+    time_diff=3600
+    cur_time=time.time()+time_diff
+    log.debug("cur_time=%f"%cur_time)
+    text_index=3
+    success=True
+  #=====================  через часты и мируты: =================
+  elif pars[1]=='через' and len(pars[2].split(':'))>1 or pars[1]=='via' and len(pars[2].split(':'))>1:
+    time_tmp=0
+    try:
+      time_tmp=pars[2].split(':')
+    except:
+      log.error("error slplit pars[2] by : at cmd: %s"%cmd)
+      if cur_data["lang"]=="ru":
+        send_message(room,"Не смог распознать в команде '%s' слово '%s' как значение времени"%(cmd,pars[i+1]))
+      else:
+        send_message(room,"error pars cmd: '%s' at '%s' as time"%(cmd,pars[i+1]))
+    if len(time_tmp)<2 or len(time_tmp)>3:
+      log.warning("error pars cmd: '%s' at '%s' as time"%(cmd,pars[i+1]))
+      if cur_data["lang"]=="ru":
+        send_message(room,"Не смог распознать в команде '%s' слово '%s' как значение времени"%(cmd,pars[i+1]))
+      else:
+        send_message(room,"error pars cmd: '%s' at '%s' as time"%(cmd,pars[i+1]))
+    else:
+      try:
+        alarm_time=0
+        if len(time_tmp)==2:
+          delta=int(time_tmp[0])*3600+int(time_tmp[1])*60
+        else:
+          delta=int(time_tmp[0])*3600+int(time_tmp[1])*60+int(time_tmp[2])
+        time_now = time.time() 
+        cur_time=time_now+delta
+        success=True
+        text_index=3
+      except:
+        log.warning("error pars cmd: '%s' at '%s' as time"%(cmd,pars[i+1]))
+        if cur_data["lang"]=="ru":
+          send_message(room,"Не смог распознать в команде '%s' слово '%s' как значение времени"%(cmd,pars[i+1]))
+        else:
+          send_message(room,"error pars cmd: '%s' at '%s' as time"%(cmd,pars[i+1]))
+
   #=====================  через несколько мирут или часов: =================
-  if pars[1]==u'через' or pars[1]=='via':
+  elif pars[1]=='через' or pars[1]=='via':
     time_tmp=0
     try:
       time_tmp=int(pars[2])
@@ -249,9 +306,10 @@ def process_alarm_cmd(user,room,cmd):
 
   #=====================  завтра: =================
   elif pars[1]=='завтра' or pars[1]=='tomorrow':
+    log.debug("tomorrow process")
     cur_time=time.time()+24*3600
     text_index=2
-    result=parse_time(cur_time,pars,text_index,cur_data)
+    result=parse_time(cur_time,pars,text_index,cur_data,cmd,room)
     if result==None:
       log.warning("parse_time(%s)"%cmd)
     else:
@@ -263,7 +321,7 @@ def process_alarm_cmd(user,room,cmd):
   elif pars[1]=='послезавтра':
     cur_time=time.time()+2*24*3600
     text_index=2
-    result=parse_time(cur_time,pars,text_index,cur_data)
+    result=parse_time(cur_time,pars,text_index,cur_data,cmd,room)
     if result==None:
       log.warning("parse_time(%s)"%cmd)
     else:
@@ -297,16 +355,24 @@ def process_alarm_cmd(user,room,cmd):
           alarm_date=time.strptime(pars[1], "%d.%m")
         else:
           alarm_date=time.strptime(pars[1], "%m.%d")
+        time_now=time.localtime(time.time())
+        cur_time=time.mktime(time.struct_time(time_now[:1] + alarm_date[1:3] + time_now[3:]))
       else:
         if cur_data["lang"]=="ru":
-          alarm_date=time.strptime(pars[1], "%d.%m.%Y")
+          if len(pars[1].split('.')[2])>2:
+            alarm_date=time.strptime(pars[1], "%d.%m.%Y")
+          else:
+            alarm_date=time.strptime(pars[1], "%d.%m.%y")
         else:
-          alarm_date=time.strptime(pars[1], "%Y.%m.%d")
-      time_now=time.localtime(time.time())
-      cur_time=time.mktime(time.struct_time(alarm_date[:3] + time_now[3:]))
+          if len(pars[1].split('.')[0])>2:
+            alarm_date=time.strptime(pars[1], "%Y.%m.%d")
+          else:
+            alarm_date=time.strptime(pars[1], "%y.%m.%d")
+        time_now=time.localtime(time.time())
+        cur_time=time.mktime(time.struct_time(alarm_date[:3] + time_now[3:]))
 
       text_index=2
-      result=parse_time(cur_time,pars,text_index,cur_data)
+      result=parse_time(cur_time,pars,text_index,cur_data,cmd,room)
       if result==None:
         log.warning("parse_time(%s)"%cmd)
       else:
@@ -322,7 +388,7 @@ def process_alarm_cmd(user,room,cmd):
 
   else:
     #============== пробуем время без даты: ============
-    result=parse_time(0,pars,1,cur_data)
+    result=parse_time(0,pars,1,cur_data,cmd,room)
     if result==None:
       log.warning("parse_time(%s)"%cmd)
     else:

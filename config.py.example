@@ -9,4 +9,9 @@ data_file="/var/spool/matrix_tomato_reminder_bot/data.json"
 
 log_path="/var/log/matrix/matrix_tomato_reminder_bot.log"
 
+morning="7:00"
+obed="12:00"
+after_work="17:00"
+evening="21:00"
+
 debug=True

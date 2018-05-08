@@ -19,6 +19,7 @@ import json
 import os
 import pickle
 import re
+import threading
 
 from matrix_client.client import MatrixClient
 from matrix_client.api import MatrixRequestError
@@ -29,6 +30,7 @@ import config as conf
 client = None
 log = None
 data={}
+lock = None
 
 
 def save_data(data):
@@ -474,6 +476,7 @@ def send_message(room_id,message):
 def on_message(event):
     global client
     global log
+    global lock
     print(json.dumps(event, indent=4, sort_keys=True,ensure_ascii=False))
     if event['type'] == "m.room.member":
         if event['membership'] == "join":
@@ -481,9 +484,12 @@ def on_message(event):
     elif event['type'] == "m.room.message":
         if event['content']['msgtype'] == "m.text":
             print("{0}: {1}".format(event['sender'], event['content']['body']))
-            if process_command(event['sender'], event['room_id'],event['content']['body']) == False:
-              log.error("error process command: '%s'"%event['content']['body'])
-              return False
+            log.debug("try lock before process_command()")
+            with lock:
+              log.debug("success lock before process_command()")
+              if process_command(event['sender'], event['room_id'],event['content']['body']) == False:
+                log.error("error process command: '%s'"%event['content']['body'])
+                return False
     else:
       print(event['type'])
     return True
@@ -519,8 +525,14 @@ def main():
     global client
     global data
     global log
+    global lock
 
-    data=load_data()
+    lock = threading.Lock()
+
+    log.debug("try lock before main load_data()")
+    with lock:
+      log.debug("success lock before main load_data()")
+      data=load_data()
 
     client = MatrixClient(conf.server)
 
@@ -549,21 +561,24 @@ def main():
     x=0
     while True:
       # Проверяем уведомления:
-      for user in data:
-        for room in data[user]:
-          for alarm_timestamp in data[user][room]["alarms"]:
-            time_now=time.time()
-            if alarm_timestamp < time_now:
-              # Уведомляем:
-              html="<p><strong>Напоминаю Вам:</strong></p>\n<ul>\n"
-              html+="<li>%s</li>\n"%data[user][room]["alarms"][alarm_timestamp]
-              html+="</ul>\n"
-              if send_html(room,html)==True:
-                del data[user][room]["alarms"][alarm_timestamp]
-                save_data(data)
-                break # выходим из текущего цикла, т.к. изменили количество в маассиве (валится в корку) - следующей проверкой проверим оставшиеся
-              else:
-                log.error("error send alarm at '%s' with text: '%s'"%(time.strftime("%Y.%m.%d-%T",time.localtime(alarm_timestamp)),data[user][room]["alarms"][alarm_timestamp]) )
+      log.debug("try lock before main loop")
+      with lock:
+        log.debug("success lock before main loop")
+        for user in data:
+          for room in data[user]:
+            for alarm_timestamp in data[user][room]["alarms"]:
+              time_now=time.time()
+              if alarm_timestamp < time_now:
+                # Уведомляем:
+                html="<p><strong>Напоминаю Вам:</strong></p>\n<ul>\n"
+                html+="<li>%s</li>\n"%data[user][room]["alarms"][alarm_timestamp]
+                html+="</ul>\n"
+                if send_html(room,html)==True:
+                  del data[user][room]["alarms"][alarm_timestamp]
+                  save_data(data)
+                  break # выходим из текущего цикла, т.к. изменили количество в маассиве (валится в корку) - следующей проверкой проверим оставшиеся
+                else:
+                  log.error("error send alarm at '%s' with text: '%s'"%(time.strftime("%Y.%m.%d-%T",time.localtime(alarm_timestamp)),data[user][room]["alarms"][alarm_timestamp]) )
 
         print("step %d"%x)
         x+=1

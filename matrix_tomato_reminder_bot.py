@@ -214,7 +214,7 @@ def parse_time(date_timestamp,pars,index,cur_data,cmd,room):
       else:
         send_message(room,"error pars cmd: '%s' at '%s' as time"%(cmd,pars[i+1]))
       return None
-    text_index=4
+    text_index=i+2
   else:
     log.warning("error pars cmd: '%s' at '%s' as time"%(cmd,pars[i+1]))
     if cur_data["lang"]=="ru":

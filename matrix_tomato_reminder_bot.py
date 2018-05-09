@@ -140,7 +140,7 @@ def process_alarm_list_cmd(user,room,cmd):
     if alarm_timestamp > time_now:
       num+=1
   if num==0:
-    send_message(room,"На данный момент для Вас Нет актывных напоминаний")
+    send_message(room,"На данный момент для Вас нет активных напоминаний")
   else:
     html="<p><strong>Я напомню Вам о следующих событиях:</strong></p>\n<ul>\n"
     for alarm_timestamp in cur_data["alarms"]:

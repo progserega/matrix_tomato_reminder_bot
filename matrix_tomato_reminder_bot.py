@@ -565,7 +565,7 @@ def main():
       log.debug("try lock before main loop")
       with lock:
         log.debug("success lock before main loop")
-        for user in data:
+        for user in data["users"]:
           for room in data["users"][user]:
             for alarm_timestamp in data["users"][user][room]["alarms"]:
               time_now=time.time()

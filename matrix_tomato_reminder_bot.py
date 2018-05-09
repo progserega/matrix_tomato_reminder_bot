@@ -580,9 +580,9 @@ def main():
                 else:
                   log.error("error send alarm at '%s' with text: '%s'"%(time.strftime("%Y.%m.%d-%T",time.localtime(alarm_timestamp)),data[user][room]["alarms"][alarm_timestamp]) )
 
-        print("step %d"%x)
-        x+=1
-        time.sleep(10)
+      print("step %d"%x)
+      x+=1
+      time.sleep(10)
 
 
 if __name__ == '__main__':

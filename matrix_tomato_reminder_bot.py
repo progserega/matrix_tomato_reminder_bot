@@ -89,7 +89,7 @@ def process_command(user,room,cmd):
   if room not in data["users"][user]:
     data["users"][user][room]={}
     data["users"][user][room]["lang"]="ru"
-    data["users"][user][room]["alarms"]={}
+    data["users"][user][room]["alarms"]=[]
 
   cur_data=data["users"][user][room]
 
@@ -136,20 +136,23 @@ def process_alarm_list_cmd(user,room,cmd):
   log.debug("process_alarm_cmd(%s,%s,%s)"%(user,room,cmd))
   time_now=time.time()
   num=0
-  for alarm_timestamp in cur_data["alarms"]:
+  for item in cur_data["alarms"]:
+    alarm_timestamp=item["time"]
     if alarm_timestamp > time_now:
       num+=1
   if num==0:
     send_message(room,"На данный момент для Вас нет активных напоминаний")
   else:
     html="<p><strong>Я напомню Вам о следующих событиях:</strong></p>\n<ul>\n"
-    for alarm_timestamp in cur_data["alarms"]:
+    for item in cur_data["alarms"]:
+      alarm_timestamp=item["time"]
+      text=item["text"]
       if alarm_timestamp > time_now:
         # Выводим только актуаальные:
         print("alarm_timestamp=",alarm_timestamp)
-        print("string=",cur_data["alarms"][alarm_timestamp])
+        print("string=",text)
         alarm_string=time.strftime("%Y.%m.%d-%T",time.localtime(alarm_timestamp))
-        html+="<li>%s: %s!</li>\n"%(alarm_string,cur_data["alarms"][alarm_timestamp])
+        html+="<li>%s: %s!</li>\n"%(alarm_string,text)
     html+="</ul>\n<p><em>Надеюсь ничего не забыл :-)</em></p>\n"
     return send_html(room,html)
 
@@ -419,8 +422,10 @@ def process_alarm_cmd(user,room,cmd):
     alarm_text+=" "
     text_index+=1
   alarm_text=alarm_text.strip()
-
-  cur_data["alarms"][int(cur_time)]=alarm_text
+  item={}
+  item["time"]=int(cur_time)
+  item["text"]=alarm_text
+  cur_data["alarms"].append(item)
   # Сохраняем в файл данных:
   save_data(data)
   if cur_data["lang"]=="ru":
@@ -567,19 +572,21 @@ def main():
         log.debug("success lock before main loop")
         for user in data["users"]:
           for room in data["users"][user]:
-            for alarm_timestamp in data["users"][user][room]["alarms"]:
+            for item in data["users"][user][room]["alarms"]:
+              alarm_timestamp=item["time"]
+              alarm_text=item["text"]
               time_now=time.time()
               if alarm_timestamp < time_now:
                 # Уведомляем:
                 html="<p><strong>Напоминаю Вам:</strong></p>\n<ul>\n"
-                html+="<li>%s</li>\n"%data["users"][user][room]["alarms"][alarm_timestamp]
+                html+="<li>%s</li>\n"%alarm_text
                 html+="</ul>\n"
                 if send_html(room,html)==True:
-                  del data["users"][user][room]["alarms"][alarm_timestamp]
+                  data["users"][user][room]["alarms"].remove(item)
                   save_data(data)
                   break # выходим из текущего цикла, т.к. изменили количество в маассиве (валится в корку) - следующей проверкой проверим оставшиеся
                 else:
-                  log.error("error send alarm at '%s' with text: '%s'"%(time.strftime("%Y.%m.%d-%T",time.localtime(alarm_timestamp)),data["users"][user][room]["alarms"][alarm_timestamp]) )
+                  log.error("error send alarm at '%s' with text: '%s'"%(time.strftime("%Y.%m.%d-%T",time.localtime(alarm_timestamp)),alarm_text) )
 
       print("step %d"%x)
       x+=1

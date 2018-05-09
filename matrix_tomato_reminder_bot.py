@@ -73,6 +73,7 @@ def load_data():
   if reset:
     log.warning("Сброс промежуточных данных")
     data={}
+    data["users"]={}
     save_data(data)
   return data
 
@@ -83,14 +84,14 @@ def process_command(user,room,cmd):
   answer=None
   cur_data=None
 
-  if user not in data:
-    data[user]={}
-  if room not in data[user]:
-    data[user][room]={}
-    data[user][room]["lang"]="ru"
-    data[user][room]["alarms"]={}
+  if user not in data["users"]:
+    data["users"][user]={}
+  if room not in data["users"][user]:
+    data["users"][user][room]={}
+    data["users"][user][room]["lang"]="ru"
+    data["users"][user][room]["alarms"]={}
 
-  cur_data=data[user][room]
+  cur_data=data["users"][user][room]
 
   
   if cmd == '!?' or cmd.lower() == '!h' or cmd.lower() == '!help':
@@ -131,7 +132,7 @@ def process_alarm_list_cmd(user,room,cmd):
   global client
   global log
 
-  cur_data=data[user][room]
+  cur_data=data["users"][user][room]
   log.debug("process_alarm_cmd(%s,%s,%s)"%(user,room,cmd))
   time_now=time.time()
   num=0
@@ -232,7 +233,7 @@ def process_alarm_cmd(user,room,cmd):
   global data
   global client
   global log
-  cur_data=data[user][room]
+  cur_data=data["users"][user][room]
   log.debug("process_alarm_cmd(%s,%s,%s)"%(user,room,cmd))
   pars=cmd.split(' ')
   cur_time=0
@@ -565,20 +566,20 @@ def main():
       with lock:
         log.debug("success lock before main loop")
         for user in data:
-          for room in data[user]:
-            for alarm_timestamp in data[user][room]["alarms"]:
+          for room in data["users"][user]:
+            for alarm_timestamp in data["users"][user][room]["alarms"]:
               time_now=time.time()
               if alarm_timestamp < time_now:
                 # Уведомляем:
                 html="<p><strong>Напоминаю Вам:</strong></p>\n<ul>\n"
-                html+="<li>%s</li>\n"%data[user][room]["alarms"][alarm_timestamp]
+                html+="<li>%s</li>\n"%data["users"][user][room]["alarms"][alarm_timestamp]
                 html+="</ul>\n"
                 if send_html(room,html)==True:
-                  del data[user][room]["alarms"][alarm_timestamp]
+                  del data["users"][user][room]["alarms"][alarm_timestamp]
                   save_data(data)
                   break # выходим из текущего цикла, т.к. изменили количество в маассиве (валится в корку) - следующей проверкой проверим оставшиеся
                 else:
-                  log.error("error send alarm at '%s' with text: '%s'"%(time.strftime("%Y.%m.%d-%T",time.localtime(alarm_timestamp)),data[user][room]["alarms"][alarm_timestamp]) )
+                  log.error("error send alarm at '%s' with text: '%s'"%(time.strftime("%Y.%m.%d-%T",time.localtime(alarm_timestamp)),data["users"][user][room]["alarms"][alarm_timestamp]) )
 
       print("step %d"%x)
       x+=1

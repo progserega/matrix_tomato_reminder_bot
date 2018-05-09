@@ -588,8 +588,8 @@ def main():
                 else:
                   log.error("error send alarm at '%s' with text: '%s'"%(time.strftime("%Y.%m.%d-%T",time.localtime(alarm_timestamp)),alarm_text) )
 
-      print("step %d"%x)
-      x+=1
+      #print("step %d"%x)
+      #x+=1
       time.sleep(10)
 
 

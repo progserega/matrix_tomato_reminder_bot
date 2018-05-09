@@ -35,7 +35,7 @@ lock = None
 
 def save_data(data):
   global log
-  log.debug("data_file:%s"%conf.data_file)
+  log.debug("save to data_file:%s"%conf.data_file)
   try:
     data_file=open(conf.data_file,"wb")
   except:

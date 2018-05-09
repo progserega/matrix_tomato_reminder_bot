@@ -101,7 +101,7 @@ def process_command(user,room,cmd):
 !напоминание время текст - напомнить в определённое время и показать текст
 !ru - russian language
 !en - english language
-!alarms - показать текущие активные напоминания
+!alarms - показать текущие активные напоминания (псевдонимы: 'все', 'всё', 'all', 'list', 'список')
 !напоминания - показать текущие активные напоминания
 """
     return send_message(room,answer)
@@ -121,6 +121,11 @@ def process_command(user,room,cmd):
   
   # Просмотреть Напоминалки:
   elif re.search('^!*alarms', cmd.lower()) is not None or \
+    re.search('^!*все', cmd.lower()) is not None or \
+    re.search('^!*всё', cmd.lower()) is not None or \
+    re.search('^!*all', cmd.lower()) is not None or \
+    re.search('^!*list', cmd.lower()) is not None or \
+    re.search('^!*список', cmd.lower()) is not None or \
     re.search('^!*напоминания', cmd.lower()) is not None:
     return process_alarm_list_cmd(user,room,cmd)
   

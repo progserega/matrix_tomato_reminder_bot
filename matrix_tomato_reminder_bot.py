@@ -527,7 +527,7 @@ def main():
     global log
     global lock
 
-    lock = threading.Lock()
+    lock = threading.RLock()
 
     log.debug("try lock before main load_data()")
     with lock:

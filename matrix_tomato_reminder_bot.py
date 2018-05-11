@@ -95,15 +95,25 @@ def process_command(user,room,cmd):
 
   
   if cmd == '!?' or cmd.lower() == '!h' or cmd.lower() == '!help':
-    answer="""!repeat - повторить текущую задачу
-!stop - остановить текущую задачу
-!alarm время текст - напомнить в определённое время и показать текст
-!напоминание время текст - напомнить в определённое время и показать текст
+    answer="""!repeat - повторить текущую задачу (не реализовано)
+!stop - остановить текущую задачу (не реализовано)
+!alarm at время текст - напомнить в определённое время и показать текст
+!напомни в время текст - напомнить в определённое время (сегодня) и показать текст
+!напомни [сегодня|завтра|послезавтра|дата] [в время] текст - напомнить текст. Если время опущено, то будет напомнено в такое же время. Взамен "в время" можно написать "в обед" - %(lunch_break)s или "после работы" - %(after_work)s или "вечером" - %(evening)s или "утром" - %(morning)s.
+Время предполагается вида: 13:23, дата: 30.04 или 30.04.18 или 30.04.2018 (в режиме английского языка - наоборот: 2018.04.30)
 !ru - russian language
 !en - english language
-!alarms - показать текущие активные напоминания (псевдонимы: 'все', 'всё', 'all', 'list', 'список')
-!напоминания - показать текущие активные напоминания
-"""
+!alarms - показать текущие активные напоминания (псевдонимы: 'все', 'всё', 'all', 'list', 'список', 'напоминания')
+
+Восклицательный знак в начале команды можно опустить.
+
+Примеры:
+
+напомни вечером позвонить другу
+напомни 23.06 в 14:25 сделать дело 
+напомни в 14:25 сделать дело 
+напомни послезавтра после работы сделать дело 
+""" % {"morning":conf.morning, "lunch_break":conf.lunch_break, "after_work":conf.after_work, "evening":conf.evening}
     return send_message(room,answer)
 
   # язык:
@@ -314,6 +324,19 @@ def process_alarm_cmd(user,room,cmd):
     log.debug("cur_time=%f"%cur_time)
     text_index=4
     success=True
+
+  #=====================  сегодня: =================
+  elif pars[1].lower()=='сегодня' or pars[1].lower()=='today':
+    log.debug("today process")
+    cur_time=time.time()
+    text_index=2
+    result=parse_time(cur_time,pars,text_index,cur_data,cmd,room)
+    if result==None:
+      log.warning("parse_time(%s)"%cmd)
+    else:
+      text_index=result["text_index"]
+      cur_time=result["result_time"]
+      success=True
 
   #=====================  завтра: =================
   elif pars[1].lower()=='завтра' or pars[1].lower()=='tomorrow':

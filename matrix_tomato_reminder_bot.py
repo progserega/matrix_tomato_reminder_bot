@@ -94,7 +94,13 @@ def process_command(user,room,cmd):
   cur_data=data["users"][user][room]
 
   
-  if cmd == '!?' or cmd.lower() == '!h' or cmd.lower() == '!help':
+  if re.search('^!*\?$', cmd.lower()) is not None or \
+    re.search('^!*h$', cmd.lower()) is not None or \
+    re.search('^!*помоги', cmd.lower()) is not None or \
+    re.search('^!*помощь', cmd.lower()) is not None or \
+    re.search('^!*справка', cmd.lower()) is not None or \
+    re.search('^!*faq', cmd.lower()) is not None or \
+    re.search('^!*help', cmd.lower()) is not None:
     answer="""!repeat - повторить текущую задачу (не реализовано)
 !stop - остановить текущую задачу (не реализовано)
 !alarm at время текст - напомнить в определённое время и показать текст

@@ -216,16 +216,16 @@ def parse_time(date_timestamp,pars,index,cur_data,cmd,room):
     except:
       log.error("error slplit pars[i+1] by : at cmd: %s"%cmd)
       if cur_data["lang"]=="ru":
-        send_message(room,"Не смог распознать в команде '%s' слово '%s' как значение времени"%(cmd,pars[i+1]))
+        send_message(room,"(1) Не смог распознать в команде '%s' слово '%s' как значение времени"%(cmd,pars[i+1]))
       else:
-        send_message(room,"error pars cmd: '%s' at '%s' as time"%(cmd,pars[i+1]))
+        send_message(room,"(1) error pars cmd: '%s' at '%s' as time"%(cmd,pars[i+1]))
       return None
     if len(time_tmp)<2 or len(time_tmp)>3:
       log.warning("error pars cmd: '%s' at '%s' as time"%(cmd,pars[i+1]))
       if cur_data["lang"]=="ru":
-        send_message(room,"Не смог распознать в команде '%s' слово '%s' как значение времени"%(cmd,pars[i+1]))
+        send_message(room,"(2) Не смог распознать в команде '%s' слово '%s' как значение времени"%(cmd,pars[i+1]))
       else:
-        send_message(room,"error pars cmd: '%s' at '%s' as time"%(cmd,pars[i+1]))
+        send_message(room,"(2) error pars cmd: '%s' at '%s' as time"%(cmd,pars[i+1]))
       return None
     try:
       alarm_time=0
@@ -238,17 +238,13 @@ def parse_time(date_timestamp,pars,index,cur_data,cmd,room):
     except:
       log.warning("error pars cmd: '%s' at '%s' as time"%(cmd,pars[i+1]))
       if cur_data["lang"]=="ru":
-        send_message(room,"Не смог распознать в команде '%s' слово '%s' как значение времени"%(cmd,pars[i+1]))
+        send_message(room,"(3) Не смог распознать в команде '%s' слово '%s' как значение времени"%(cmd,pars[i+1]))
       else:
-        send_message(room,"error pars cmd: '%s' at '%s' as time"%(cmd,pars[i+1]))
+        send_message(room,"(3) error pars cmd: '%s' at '%s' as time"%(cmd,pars[i+1]))
       return None
     text_index=i+2
   else:
-    log.warning("error pars cmd: '%s' at '%s' as time"%(cmd,pars[i+1]))
-    if cur_data["lang"]=="ru":
-      send_message(room,"Не смог распознать в команде '%s' слово '%s' как значение времени"%(cmd,pars[i+1]))
-    else:
-      send_message(room,"error pars cmd: '%s' at '%s' as time"%(cmd,pars[i+1]))
+    log.warning("error pars cmd: '%s' at '%s' as predlog"%(cmd,pars[i]))
     return None
 
   data={}
@@ -358,7 +354,7 @@ def process_alarm_cmd(user,room,cmd):
     else:
       text_index=result["text_index"]
       cur_time=result["result_time"]
-      success=True
+    success=True
 
   #=====================  послезавтра: =================
   elif pars[1].lower()=='послезавтра':
@@ -370,10 +366,11 @@ def process_alarm_cmd(user,room,cmd):
     else:
       text_index=result["text_index"]
       cur_time=result["result_time"]
-      success=True
+    success=True
 
   #=====================  дата: =================
   elif len(pars[1].split('.'))>1:
+    log.debug("parse date: %s"%pars[1])
     date_tmp=0
     try:
       date_tmp=pars[1].split('.')
@@ -421,7 +418,7 @@ def process_alarm_cmd(user,room,cmd):
       else:
         text_index=result["text_index"]
         cur_time=result["result_time"]
-        success=True
+      success=True
     except:
       log.warning("error pars cmd: '%s' at '%s' as time"%(cmd,pars[i+1]))
       if cur_data["lang"]=="ru":
@@ -449,7 +446,7 @@ def process_alarm_cmd(user,room,cmd):
     
 
 # Время получили, устанавливаем таймер:
-  print("cur_time=",cur_time)
+  #print("cur_time=",cur_time)
   #timestamp=time.mktime(cur_time)
   # TODO:
   alarm_text=""
@@ -496,6 +493,10 @@ def send_html(room_id,html):
 def send_message(room_id,message):
   global client
   global log
+
+  #FIXME отладка парсера
+  #print("message=%s"%message)
+  #return True
 
   room=None
   try:
@@ -577,6 +578,14 @@ def main():
       log.debug("success lock before main load_data()")
       data=load_data()
 
+    #FIXME отладка парсера
+    #data["users"]["@progserega:matrix.org"]={}
+    #data["users"]["@progserega:matrix.org"]["test"]={}
+    #data["users"]["@progserega:matrix.org"]["test"]["alarms"]=[]
+    #data["users"]["@progserega:matrix.org"]["test"]["lang"]="ru"
+    #print(process_alarm_cmd("@progserega:matrix.org","test","напомни послезавтра после работы проверить звук в машине и подтёки масла, т.к. 11 июня закончится гарантия."))
+    #sys.exit(1)
+
     client = MatrixClient(conf.server)
 
     try:
@@ -653,6 +662,9 @@ if __name__ == '__main__':
 
   # add handler to logger object
   log.addHandler(fh)
+
+
+
 
   log.info("Program started")
   main()

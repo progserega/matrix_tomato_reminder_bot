@@ -560,10 +560,10 @@ def on_invite(room, event):
       if event_item['type'] == "m.room.join_rules":
         if event_item['content']['join_rule'] == "invite":
           # Приглашение вступить в комнату:
-          print("TODO join to room: %s"%room)
           room = client.join_room(room)
           room.send_text("Спасибо за приглашение! Недеюсь быть Вам полезным. :-)")
           room.send_text("Для справки по доступным командам - неберите: '!help' (или '!?', или '!h')")
+          log.info("New user: '%s'"%event_item["sender"])
 
 def main():
     global client

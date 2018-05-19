@@ -271,7 +271,35 @@ def process_alarm_cmd(user,room,cmd):
     log.debug("cur_time=%f"%cur_time)
     text_index=3
     success=True
-  #=====================  через часты и мируты: =================
+  #=====================  через день: =================
+  elif pars[1].lower()=='через' and pars[2].lower()=='день' or pars[1].lower()=='via' and pars[2].lower()=='day':
+    time_diff=3600*24
+    cur_time=time.time()+time_diff
+    log.debug("cur_time=%f"%cur_time)
+    text_index=3
+    success=True
+  #=====================  через неделю: =================
+  elif pars[1].lower()=='через' and pars[2].lower()=='неделю' or pars[1].lower()=='via' and pars[2].lower()=='week':
+    time_diff=3600*24*7
+    cur_time=time.time()+time_diff
+    log.debug("cur_time=%f"%cur_time)
+    text_index=3
+    success=True
+  #=====================  через месяц: =================
+  elif pars[1].lower()=='через' and pars[2].lower()=='месяц' or pars[1].lower()=='via' and pars[2].lower()=='month':
+    time_diff=3600*24*30
+    cur_time=time.time()+time_diff
+    log.debug("cur_time=%f"%cur_time)
+    text_index=3
+    success=True
+  #=====================  через год: =================
+  elif pars[1].lower()=='через' and pars[2].lower()=='год' or pars[1].lower()=='via' and pars[2].lower()=='year':
+    time_diff=3600*24*365
+    cur_time=time.time()+time_diff
+    log.debug("cur_time=%f"%cur_time)
+    text_index=3
+    success=True
+  #=====================  через часты и минуты: =================
   elif pars[1].lower()=='через' and len(pars[2].split(':'))>1 or pars[1].lower()=='via' and len(pars[2].split(':'))>1:
     time_tmp=0
     try:
@@ -306,7 +334,7 @@ def process_alarm_cmd(user,room,cmd):
         else:
           send_message(room,"error pars cmd: '%s' at '%s' as time"%(cmd,pars[i+1]))
 
-  #=====================  через несколько мирут или часов: =================
+  #=====================  через несколько мирут, часов, дней, недель, месяцев, лет: =================
   elif pars[1].lower()=='через' or pars[1].lower()=='via':
     time_tmp=0
     try:
@@ -321,8 +349,21 @@ def process_alarm_cmd(user,room,cmd):
     factor=1
     if "мин" in pars[3] or "min" in pars[3]:
       factor=60
-    if "час" in pars[3] or "h" in pars[3]:
+    elif "час" in pars[3] or "h" in pars[3]:
       factor=3600
+    elif "дня" in pars[3] or\
+          "дней" in pars[3] or\
+          "day" in pars[3]:
+      factor=3600*24
+    elif "недел" in pars[3] or\
+          "week" in pars[3]:
+      factor=3600*24*7
+    elif "месяц" in pars[3] or\
+          "month" in pars[3]:
+      factor=3600*24*30
+    elif "год" in pars[3] or\
+          "year" in pars[3]:
+      factor=3600*24*365
     cur_time=time.time()+int(time_tmp)*factor
     log.debug("factor=%d"%factor)
     log.debug("time_tmp=%d"%int(time_tmp))

@@ -187,22 +187,27 @@ def parse_time(date_timestamp,pars,index,cur_data,cmd,room):
   i=index
   if pars[i].lower()=='утром' or pars[i].lower()=='morning':
     alarm_time=time.strptime(conf.morning, "%H:%M")
-    date_time = time.localtime(date_timestamp) 
+    date_time = time.localtime(date_timestamp)
     cur_time=time.mktime(time.struct_time(date_time[:3] + alarm_time[3:]))
     text_index=i+1
   elif pars[i].lower()=='в' and pars[i+1].lower()=='обед' or pars[i].lower()=='at' and pars[i+1].lower()=='lunch':
     alarm_time=time.strptime(conf.lunch_break, "%H:%M")
-    date_time = time.localtime(date_timestamp) 
+    date_time = time.localtime(date_timestamp)
+    cur_time=time.mktime(time.struct_time(date_time[:3] + alarm_time[3:]))
+    text_index=i+2
+  elif pars[i].lower()=='после' and pars[i+1].lower()=='обеда' or pars[i].lower()=='after' and pars[i+1].lower()=='lunch':
+    alarm_time=time.strptime(conf.after_lunch, "%H:%M")
+    date_time = time.localtime(date_timestamp)
     cur_time=time.mktime(time.struct_time(date_time[:3] + alarm_time[3:]))
     text_index=i+2
   elif pars[i].lower()=='после' and pars[i+1].lower()=='работы' or pars[i].lower()=='after' and pars[i+1].lower()=='work':
     alarm_time=time.strptime(conf.after_work, "%H:%M")
-    date_time = time.localtime(date_timestamp) 
+    date_time = time.localtime(date_timestamp)
     cur_time=time.mktime(time.struct_time(date_time[:3] + alarm_time[3:]))
     text_index=i+2
   elif pars[i].lower()=='вечером' or pars[i].lower()=='at' and pars[i+1].lower()=='evening':
     alarm_time=time.strptime(conf.evening, "%H:%M")
-    date_time = time.localtime(date_timestamp) 
+    date_time = time.localtime(date_timestamp)
     cur_time=time.mktime(time.struct_time(date_time[:3] + alarm_time[3:]))
     if pars[i].lower()=='вечером':
       text_index=i+1

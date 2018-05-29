@@ -616,6 +616,8 @@ def exception_handler(e):
   global log
   log.error("main listener thread except. He must retrying...")
   print(e)
+  log.info("wait 30 second before retrying...")
+  time.sleep(30)
 
 def main():
     global client

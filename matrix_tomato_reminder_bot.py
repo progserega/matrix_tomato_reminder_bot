@@ -663,7 +663,8 @@ def main():
 #client.start_listener_thread()
     # Слушанье сокета и пересоединение в случае сбоя:
 #client.listen_forever(timeout_ms=30000, exception_handler=exception_handler,bad_sync_timeout=5)
-    client.listen_forever()
+    client.listen_forever(timeout_ms=30000, exception_handler=exception_handler,bad_sync_timeout=5)
+    #client.listen_forever()
 
     x=0
     while True:

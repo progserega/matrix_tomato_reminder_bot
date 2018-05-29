@@ -611,6 +611,12 @@ def on_invite(room, event):
           room.send_text("Для справки по доступным командам - неберите: '!help' (или '!?', или '!h')")
           log.info("New user: '%s'"%event_item["sender"])
 
+def exception_handler(e):
+  global client
+  global log
+  log.error("main listener thread except. He must retrying...")
+  print(e)
+
 def main():
     global client
     global data
@@ -654,7 +660,9 @@ def main():
     client.add_listener(on_message)
     client.add_ephemeral_listener(on_event)
     client.add_invite_listener(on_invite)
-    client.start_listener_thread()
+#client.start_listener_thread()
+    # Слушанье сокета и пересоединение в случае сбоя:
+    client.listen_forever(exception_handler=exception_handler)
 
     x=0
     while True:

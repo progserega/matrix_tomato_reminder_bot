@@ -640,10 +640,14 @@ def main():
     #print(process_alarm_cmd("@progserega:matrix.org","test","напомни послезавтра после работы проверить звук в машине и подтёки масла, т.к. 11 июня закончится гарантия."))
     #sys.exit(1)
 
+    log.info("try init matrix-client")
     client = MatrixClient(conf.server)
+    log.info("success init matrix-client")
 
     try:
+        log.info("try login matrix-client")
         client.login_with_password(username=conf.username, password=conf.password)
+        log.info("success login matrix-client")
     except MatrixRequestError as e:
         print(e)
         log.debug(e)
@@ -659,6 +663,7 @@ def main():
         log.debug(e)
         sys.exit(3)
 
+    log.info("try init listeners")
     client.add_listener(on_message)
     client.add_ephemeral_listener(on_event)
     client.add_invite_listener(on_invite)
@@ -667,6 +672,7 @@ def main():
 #client.listen_forever(timeout_ms=30000, exception_handler=exception_handler,bad_sync_timeout=5)
     client.listen_forever(timeout_ms=30000, exception_handler=exception_handler,bad_sync_timeout=5)
     #client.listen_forever()
+    log.info("success init listeners")
 
     x=0
     log.info("enter main loop")

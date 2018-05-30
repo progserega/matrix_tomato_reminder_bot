@@ -669,6 +669,7 @@ def main():
     #client.listen_forever()
 
     x=0
+    log.info("enter main loop")
     while True:
       # Проверяем уведомления:
       log.debug("try lock before main loop")
@@ -695,6 +696,7 @@ def main():
       #print("step %d"%x)
       #x+=1
       time.sleep(10)
+    log.info("exit main loop")
 
 
 if __name__ == '__main__':

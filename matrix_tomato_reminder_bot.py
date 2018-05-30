@@ -670,7 +670,8 @@ def main():
 #client.start_listener_thread()
     # Слушанье сокета и пересоединение в случае сбоя:
 #client.listen_forever(timeout_ms=30000, exception_handler=exception_handler,bad_sync_timeout=5)
-    client.listen_forever(timeout_ms=30000, exception_handler=exception_handler,bad_sync_timeout=5)
+    client.start_listener_thread(exception_handler=exception_handler)
+#client.listen_forever(timeout_ms=30000, exception_handler=exception_handler,bad_sync_timeout=5)
     #client.listen_forever()
     log.info("success init listeners")
 

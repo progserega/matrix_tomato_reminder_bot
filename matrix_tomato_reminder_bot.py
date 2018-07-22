@@ -15,6 +15,7 @@
 import sys
 import logging
 import time
+import datetime
 import json
 import os
 import pickle
@@ -31,6 +32,16 @@ client = None
 log = None
 data={}
 lock = None
+
+week_days={
+  "понедельник":1,
+  "вторник":2,
+  "среду":3,
+  "четверг":4,
+  "пятницу":5,
+  "субботу":6,
+  "воскресенье":7
+}
 
 
 def save_data(data):
@@ -414,6 +425,32 @@ def process_alarm_cmd(user,room,cmd):
       cur_time=result["result_time"]
     success=True
 
+  #===================== день недели: =================
+  elif (pars[1].lower()=='в' or pars[1].lower()=='во') and pars[2].lower() in week_days:
+    diff_day=0
+    at_day=week_days[pars[2].lower()]
+    cur_day=datetime.datetime.today().isoweekday()
+
+    if at_day>cur_day:
+      diff_day=at_day-cur_day
+    elif at_day<cur_day:
+      diff_day=diff_day=7-cur_day+at_day
+    else:
+      # at_day=cur_day 
+      # если указанный день совпадает с текущим днём, то счиатем, что напомниание ставим на этот
+      # день, но уже на следующией недели:
+      diff_day=7
+
+    cur_time=time.time()+diff_day*24*3600
+    text_index=3
+    result=parse_time(cur_time,pars,text_index,cur_data,cmd,room)
+    if result==None:
+      log.warning("parse_time(%s)"%cmd)
+    else:
+      text_index=result["text_index"]
+      cur_time=result["result_time"]
+    success=True
+
   #=====================  дата: =================
   elif len(pars[1].split('.'))>1:
     log.debug("parse date: %s"%pars[1])
@@ -729,9 +766,6 @@ if __name__ == '__main__':
 
   # add handler to logger object
   log.addHandler(fh)
-
-
-
 
   log.info("Program started")
   main()

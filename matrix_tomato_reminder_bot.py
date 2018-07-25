@@ -201,6 +201,11 @@ def parse_time(date_timestamp,pars,index,cur_data,cmd,room):
     date_time = time.localtime(date_timestamp)
     cur_time=time.mktime(time.struct_time(date_time[:3] + alarm_time[3:]))
     text_index=i+1
+  elif pars[i].lower()=='на' and pars[i+1].lower()=='работе' or pars[i].lower()=='at' and pars[i+1].lower()=='work':
+    alarm_time=time.strptime(conf.at_work, "%H:%M")
+    date_time = time.localtime(date_timestamp)
+    cur_time=time.mktime(time.struct_time(date_time[:3] + alarm_time[3:]))
+    text_index=i+2
   elif pars[i].lower()=='в' and pars[i+1].lower()=='обед' or pars[i].lower()=='at' and pars[i+1].lower()=='lunch':
     alarm_time=time.strptime(conf.lunch_break, "%H:%M")
     date_time = time.localtime(date_timestamp)

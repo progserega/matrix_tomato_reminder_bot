@@ -88,12 +88,28 @@ def load_data():
     save_data(data)
   return data
 
-def process_command(user,room,cmd):
+def process_command(user,room,cmd,formated_message,format_type,reply_to_id):
   global client
   global log
   global data
   answer=None
   cur_data=None
+  source_message=None
+  source_cmd=None
+  source_event_text=None
+
+  if reply_to_id!=None and format_type=="org.matrix.custom.html" and formated_message!=None:
+    # разбираем, чтобы получить исходное сообщение и ответ
+    source_message=re.sub('<mx-reply><blockquote>.*<\/a><br>','', formated_message)
+    source_message=re.sub('</blockquote></mx-reply>.*','', source_message)
+    source_cmd=re.sub(r'.*</blockquote></mx-reply>','', formated_message.replace('\n',''))
+    log.debug("source=%s"%source_message)
+    log.debug("cmd=%s"%source_cmd)
+    message=source_cmd
+    source_event_text=re.sub('.*\n*.*<ul>\n<li>','', source_message)
+    source_event_text=re.sub('</li>\n</ul>$','', source_event_text)
+    log.debug("source_event_text=%s"%source_event_text)
+    cmd=source_cmd + " " + source_event_text
 
   if user not in data["users"]:
     data["users"][user]={}
@@ -112,7 +128,7 @@ def process_command(user,room,cmd):
     re.search('^!*справка', cmd.lower()) is not None or \
     re.search('^!*faq', cmd.lower()) is not None or \
     re.search('^!*help', cmd.lower()) is not None:
-    answer="""!repeat - повторить текущую задачу (не реализовано)
+    answer="""!repeat - повторить текущую задачу. Выберите любое моё напоминание и в ответе напишите 'повтор' и обычный формат времени даты 
 !stop - остановить текущую задачу (не реализовано)
 !alarm at время текст - напомнить в определённое время и показать текст
 !напомни в время текст - напомнить в определённое время (сегодня) и показать текст
@@ -150,6 +166,17 @@ def process_command(user,room,cmd):
   elif re.search('^!*alarm .*', cmd.lower()) is not None or \
     re.search('^!*напомни .*', cmd.lower()) is not None:
     return process_alarm_cmd(user,room,cmd)
+
+  # повторение
+  elif re.search('^!*retry .*', cmd.lower()) is not None and reply_to_id != None or \
+    re.search('^!*повтори .*', cmd.lower()) is not None and reply_to_id != None:
+    return process_alarm_cmd(user,room,cmd)
+
+  # повторение
+  elif re.search('^!*retry .*', cmd.lower()) is not None and reply_to_id == None or \
+    re.search('^!*повтори .*', cmd.lower()) is not None and reply_to_id == None:
+    answer="Выделите одно из моих напоминаний и в ответе напишите 'повторить дата/время'"
+    return send_message(room,answer)
   
   # Просмотреть Напоминалки:
   elif re.search('^!*alarms', cmd.lower()) is not None or \
@@ -160,7 +187,7 @@ def process_command(user,room,cmd):
     re.search('^!*список', cmd.lower()) is not None or \
     re.search('^!*напоминания', cmd.lower()) is not None:
     return process_alarm_list_cmd(user,room,cmd)
-  
+
   return True
 
 
@@ -618,10 +645,34 @@ def on_message(event):
     elif event['type'] == "m.room.message":
         if event['content']['msgtype'] == "m.text":
             print("{0}: {1}".format(event['sender'], event['content']['body']))
+            reply_to_id=None
+            if "m.relates_to" in  event['content']:
+              # это ответ на сообщение:
+              try:
+                reply_to_id=event['content']['m.relates_to']['m.in_reply_to']['event_id']
+              except:
+                log.error("bad formated event reply - skip")
+                send_message(event['room_id'],"Внутренняя ошибка разбора сообщения - обратитесь к разработчику")
+                return False
+            formatted_body=None
+            format_type=None
+            if "formatted_body" in event['content'] and "format" in event['content']:
+              formatted_body=event['content']['formatted_body']
+              format_type=event['content']['format']
+            log.debug("{0}: {1}".format(event['sender'], event['content']['body'].encode('utf8')))
+            log.debug("try lock before mbl.process_message()")
+             
             log.debug("try lock before process_command()")
             with lock:
               log.debug("success lock before process_command()")
-              if process_command(event['sender'], event['room_id'],event['content']['body']) == False:
+              if process_command(
+                event['sender'],\
+                event['room_id'],\
+                event['content']['body'],\
+                formated_message=formatted_body,\
+                format_type=format_type,\
+                reply_to_id=reply_to_id\
+                ) == False:
                 log.error("error process command: '%s'"%event['content']['body'])
                 return False
     else:

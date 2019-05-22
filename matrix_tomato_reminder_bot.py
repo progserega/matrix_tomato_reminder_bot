@@ -135,6 +135,8 @@ def process_command(user,room,cmd,formated_message,format_type,reply_to_id):
 !напомни [сегодня|завтра|послезавтра|дата] [в время] текст - напомнить текст. Если время опущено, то будет напомнено в такое же время. Взамен "в время" можно написать "в обед" - %(lunch_break)s или "после работы" - %(after_work)s или "вечером" - %(evening)s или "утром" - %(morning)s.
 !напомни через число минут|часов текст - напомнить текст через указанное количество часов или минут.
 !напомни через время текст - напомнить текст через указанное количество времени
+!40 - напомни через 40 минут текстом '40 минут прошло'
+!5 - напомни через 5 минут текстом '5 минут прошло'
 Время предполагается вида: 13:23, дата: 30.04 или 30.04.18 или 30.04.2018 (в режиме английского языка - наоборот: 2018.04.30)
 !ru - russian language
 !en - english language
@@ -187,6 +189,16 @@ def process_command(user,room,cmd,formated_message,format_type,reply_to_id):
     re.search('^!*список', cmd.lower()) is not None or \
     re.search('^!*напоминания', cmd.lower()) is not None:
     return process_alarm_list_cmd(user,room,cmd)
+
+  # простой числовой таймер (от пользователя передано только число):
+  elif re.search('^!*[0-9]+$', cmd.lower()) is not None:
+    minutes_string=cmd.replace('!','')
+    try:
+      minutes=int(minutes_string)
+    except:
+      log.warning("convert minutes to in in simple_timer prepare")
+      return False
+    return process_simple_timer_cmd(user,room,minutes)
 
   return True
 
@@ -584,6 +596,19 @@ def process_alarm_cmd(user,room,cmd):
   else:
     return send_message(room,"set alarm at %s, with text: '%s'"%(time.strftime("%Y.%m.%d-%T",time.localtime(cur_time)),alarm_text) )
 
+def process_simple_timer_cmd(user,room,timeout_minutes):
+  alarm_text="%d минут прошло"%timeout_minutes
+  cur_time=time.mktime()+timeout_minutes*60
+  item={}
+  item["time"]=int(cur_time)
+  item["text"]=alarm_text
+  cur_data["alarms"].append(item)
+  # Сохраняем в файл данных:
+  save_data(data)
+  if cur_data["lang"]=="ru":
+    return send_message(room,"Установил напоминание на %s, с текстом: '%s'"%(time.strftime("%Y.%m.%d-%T",time.localtime(cur_time)),alarm_text) )
+  else:
+    return send_message(room,"set alarm at %s, with text: '%s'"%(time.strftime("%Y.%m.%d-%T",time.localtime(cur_time)),alarm_text) )
 
 def send_html(room_id,html):
   global client

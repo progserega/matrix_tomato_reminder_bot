@@ -597,8 +597,12 @@ def process_alarm_cmd(user,room,cmd):
     return send_message(room,"set alarm at %s, with text: '%s'"%(time.strftime("%Y.%m.%d-%T",time.localtime(cur_time)),alarm_text) )
 
 def process_simple_timer_cmd(user,room,timeout_minutes):
+  global client
+  global log
+  global data
+  cur_data=data["users"][user][room]
   alarm_text="%d минут прошло"%timeout_minutes
-  cur_time=time.mktime()+timeout_minutes*60
+  cur_time=time.time()+timeout_minutes*60
   item={}
   item["time"]=int(cur_time)
   item["text"]=alarm_text

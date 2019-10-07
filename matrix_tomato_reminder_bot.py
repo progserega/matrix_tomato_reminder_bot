@@ -592,9 +592,9 @@ def process_alarm_cmd(user,room,cmd):
   # Сохраняем в файл данных:
   save_data(data)
   if cur_data["lang"]=="ru":
-    return send_message(room,"Установил напоминание на %s, с текстом: '%s'"%(time.strftime("%Y.%m.%d-%T",time.localtime(cur_time)),alarm_text) )
+    return send_notice(room,"Установил напоминание на %s, с текстом: '%s'"%(time.strftime("%Y.%m.%d-%T",time.localtime(cur_time)),alarm_text) )
   else:
-    return send_message(room,"set alarm at %s, with text: '%s'"%(time.strftime("%Y.%m.%d-%T",time.localtime(cur_time)),alarm_text) )
+    return send_notice(room,"set alarm at %s, with text: '%s'"%(time.strftime("%Y.%m.%d-%T",time.localtime(cur_time)),alarm_text) )
 
 def process_simple_timer_cmd(user,room,timeout_minutes):
   global client
@@ -659,6 +659,29 @@ def send_message(room_id,message):
     room.send_text(message)
   except:
     log.error("Unknown error at send message '%s' to room '%s'"%(message,room_id))
+    return False
+  return True
+
+def send_notice(room_id,message):
+  global client
+  global log
+  log.debug("=start function=")
+  room=None
+  try:
+    room = client.join_room(room_id)
+  except MatrixRequestError as e:
+    print(e)
+    if e.code == 400:
+      log.error("Room ID/Alias in the wrong format")
+      return False
+    else:
+      log.error("Couldn't find room.")
+      return False
+  try:
+    room.send_notice(message)
+  except Exception as e:
+    log.error(get_exception_traceback_descr(e))
+    log.error("Unknown error at send notice message '%s' to room '%s'"%(message,room_id))
     return False
   return True
 

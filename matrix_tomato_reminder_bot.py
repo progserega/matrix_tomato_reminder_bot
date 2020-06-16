@@ -610,9 +610,9 @@ def process_simple_timer_cmd(user,room,timeout_minutes):
   # Сохраняем в файл данных:
   save_data(data)
   if cur_data["lang"]=="ru":
-    return send_message(room,"Установил напоминание на %s, с текстом: '%s'"%(time.strftime("%Y.%m.%d-%T",time.localtime(cur_time)),alarm_text) )
+    return send_notice(room,"Установил напоминание на %s, с текстом: '%s'"%(time.strftime("%Y.%m.%d-%T",time.localtime(cur_time)),alarm_text) )
   else:
-    return send_message(room,"set alarm at %s, with text: '%s'"%(time.strftime("%Y.%m.%d-%T",time.localtime(cur_time)),alarm_text) )
+    return send_notice(room,"set alarm at %s, with text: '%s'"%(time.strftime("%Y.%m.%d-%T",time.localtime(cur_time)),alarm_text) )
 
 def send_html(room_id,html):
   global client

@@ -22,6 +22,10 @@ import os
 import pickle
 import re
 import threading
+try:
+    from urllib import quote
+except ImportError:
+    from urllib.parse import quote
 
 from matrix_client.client import MatrixClient
 from matrix_client.api import MatrixRequestError
@@ -44,6 +48,16 @@ week_days={
   "воскресенье":7
 }
 
+
+def get_exception_traceback_descr(e):
+  if hasattr(e, '__traceback__'):
+    tb_str = traceback.format_exception(etype=type(e), value=e, tb=e.__traceback__)
+    result=""
+    for msg in tb_str:
+      result+=msg
+    return result
+  else:
+    return e
 
 def save_data(data):
   global log
@@ -101,14 +115,32 @@ def process_command(user,room,cmd,formated_message,format_type,reply_to_id):
 
   if reply_to_id!=None and format_type=="org.matrix.custom.html" and formated_message!=None:
     # разбираем, чтобы получить исходное сообщение и ответ
-    source_message=re.sub('<mx-reply><blockquote>.*<\/a><br>','', formated_message)
-    source_message=re.sub('</blockquote></mx-reply>.*','', source_message)
-    source_cmd=re.sub(r'.*</blockquote></mx-reply>','', formated_message.replace('\n',''))
+    # получаем цитируемое сообщение по его id:
+    try:
+      source_event=get_event(log, client, room, reply_to_id)
+    except Exception as e:
+      log.error(get_exception_traceback_descr(e))
+      send_message(room,"ошибка получения исходного сообщения с event_id=%s - обратитесь к разработчику."%reply_to_id)
+      source_event=None
+    if source_event != None:
+      log.debug("success get source message by reply_to_id")
+      source_message = source_event["content"]["body"].replace('<br/>','\n')
+    else:
+      log.debug("get source message from formated_message")
+      source_message=re.sub('<mx-reply><blockquote>.*<\/a><br>','', formated_message)
+      source_message=re.sub('</blockquote></mx-reply>.*','', source_message)
     log.debug("source=%s"%source_message)
+    source_cmd=re.sub(r'.*</blockquote></mx-reply>','', formated_message.replace('\n',''))
     log.debug("cmd=%s"%source_cmd)
     message=source_cmd
     source_event_text=re.sub('.*\n*.*<ul>\n<li>','', source_message)
     source_event_text=re.sub('</li>\n</ul>$','', source_event_text)
+    if 'Напоминаю Вам:' in source_event_text:
+      source_event_text=re.sub('Напоминаю Вам:\n*','', source_event_text)
+    # если цитировали сам факт установки напоминания:
+    if 'Установил напоминание на' in source_event_text:
+      source_event_text=re.sub("Установил напоминание на .* с текстом: '",'', source_event_text)
+      source_event_text=re.sub("'$",'', source_event_text)
     log.debug("source_event_text=%s"%source_event_text)
     cmd=source_cmd + " " + source_event_text
 
@@ -854,6 +886,19 @@ def main():
     log.info("exit main loop")
 
 
+def get_event(log, client, room_id, event_id):
+  log.debug("=== start function ===")
+  """Perform GET /rooms/$room_id/event/$event_id
+
+  Args:
+      room_id(str): The room ID.
+      event_id(str): The event ID.
+
+  Raises:
+      MatrixRequestError(code=404) if the event is not found.
+  """
+  return client.api._send("GET", "/rooms/{}/event/{}".format(quote(room_id), quote(event_id)))
+
 if __name__ == '__main__':
   log= logging.getLogger("matrix_tomato_reminder_bot")
   if conf.debug:
@@ -864,7 +909,7 @@ if __name__ == '__main__':
   # create the logging file handler
   #fh = logging.FileHandler(conf.log_path)
   fh = logging.handlers.TimedRotatingFileHandler(conf.log_path, when=conf.log_backup_when, backupCount=conf.log_backup_count, encoding='utf-8')
-  formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+  formatter = logging.Formatter('%(asctime)s - %(name)s - %(filename)s:%(lineno)d - %(funcName)s() %(levelname)s - %(message)s')
   fh.setFormatter(formatter)
 
   if conf.debug:
@@ -880,5 +925,8 @@ if __name__ == '__main__':
   log.addHandler(fh)
 
   log.info("Program started")
-  main()
-  log.info("Program exit!")
+  if main() == False:
+    log.error("main()")
+    sys.exit(1)
+  else:
+    log.info("Program success exit")

@@ -10,7 +10,10 @@ import logging
 import json
 from logging import handlers
 import configparser
-import simplematrixbotlib as botlib
+import asyncio
+import nio
+#from nio import AsyncClient, MatrixRoom, RoomMessageText
+
 
 log=None
 config=None
@@ -26,51 +29,35 @@ def get_exception_traceback_descr(e):
   else:
     return e
 
+async def message_callback(room: nio.MatrixRoom, event: nio.RoomMessageText) -> None:
+    print(
+        f"Message received in room {room.display_name}\n"
+        f"{room.user_name(event.sender)} | {event.body}"
+    )
+
+async def main_loop():
+  global log
+  global config
+  try:
+    client = nio.AsyncClient(config["main"]["server"], config["main"]["username"])
+    client.add_event_callback(message_callback, nio.RoomMessageText)
+    ret = await client.login(config["main"]["password"],device_name=config["main"]["device_name"])
+    if (isinstance(ret, nio.LoginResponse)):
+      log.info("login success")
+    else:
+      log.info("login error")
+      sys.exit(1)
+
+    await client.sync_forever(timeout=30000,full_state=True) # milliseconds
+  except Exception as e:
+    log.error(get_exception_traceback_descr(e))
+    sys.exit(1)
 
 def main():
   global log
   global config
-
   try:
-    # https://simple-matrix-bot-lib.readthedocs.io/en/latest/quickstart.html#quickstart
-    # Create a Creds object with your login credentials.
-    creds = botlib.Creds(config["main"]["server"], config["main"]["username"], config["main"]["password"])
-    # Create a bot object. This will be used as a handle throughout your project.
-    bot = botlib.Bot(creds)
-    PREFIX = config["main"]["bot_cmd_prefix"]
-
-    # Create a command by defining a function. The function must be an “async” function with two arguments.
-    # Recommended argument names are (room, message) or (room, event)
-    @bot.listener.on_message_event
-    async def exit_fun(room, message):
-      log.debug("exit_fun function")
-      try:
-        # Creating a MessageMatch object is optional, but useful for handling messages.
-        # The prefix argument is optional, but is needed when matching prefixes.
-        match = botlib.MessageMatch(room, message, bot, PREFIX)
-        
-        #if match.is_not_from_this_bot() and match.prefix() and match.command("exit"):
-        # смотрим и свои команды:
-        if match.prefix() and match.command("exit"):
-          # This part of the handler is responsible for sending the response message. 
-          # The rest of the message following “!echo” will be sent to the same room as the message.
-          log.info("exit cmd")
-          log.info("success receive exit command")
-          sys.exit(0)
-          return True
-      except Exception as e:
-        log.error(get_exception_traceback_descr(e))
-        sys.exit(1)
-
-    @bot.listener.on_startup
-    async def room_joined(room_id):
-      log.info("send exit command")
-      await bot.api.send_text_message(
-        room_id, "!exit"
-      )
-
-    # Before creating a function handler for a command, it is necessary to add a listener.
-    bot.run()
+    asyncio.get_event_loop().run_until_complete(main_loop())
   except Exception as e:
     log.error(get_exception_traceback_descr(e))
     sys.exit(1)

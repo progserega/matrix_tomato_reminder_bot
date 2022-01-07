@@ -22,6 +22,9 @@ import os
 import pickle
 import re
 import threading
+import configparser
+import simplematrixbotlib as botlib
+
 try:
     from urllib import quote
 except ImportError:
@@ -37,6 +40,7 @@ client = None
 log = None
 data={}
 lock = None
+config = None
 
 week_days={
   "понедельник":1,
@@ -78,30 +82,35 @@ def save_data(data):
 
 def load_data():
   global log
-  tmp_data_file=conf.data_file
-  reset=False
-  if os.path.exists(tmp_data_file):
-    log.debug("Загружаем файл промежуточных данных: '%s'" % tmp_data_file)
-    data_file = open(tmp_data_file,'rb')
-    try:
-      data=pickle.load(data_file)
-      data_file.close()
-      log.debug("Загрузили файл промежуточных данных: '%s'" % tmp_data_file)
-    except:
-      log.warning("Битый файл сессии - сброс")
+  global config
+  try:
+    tmp_data_file=config["storage"]["data_file"]
+    reset=False
+    if os.path.exists(tmp_data_file):
+      log.debug("Загружаем файл промежуточных данных: '%s'" % tmp_data_file)
+      data_file = open(tmp_data_file,'rb')
+      try:
+        data=pickle.load(data_file)
+        data_file.close()
+        log.debug("Загрузили файл промежуточных данных: '%s'" % tmp_data_file)
+      except:
+        log.warning("Битый файл сессии - сброс")
+        reset=True
+      if not "users" in data:
+        log.warning("Битый файл сессии - сброс")
+        reset=True
+    else:
+      log.warning("Файл промежуточных данных не существует")
       reset=True
-    if not "users" in data:
-      log.warning("Битый файл сессии - сброс")
-      reset=True
-  else:
-    log.warning("Файл промежуточных данных не существует")
-    reset=True
-  if reset:
-    log.warning("Сброс промежуточных данных")
-    data={}
-    data["users"]={}
-    save_data(data)
-  return data
+    if reset:
+      log.warning("Сброс промежуточных данных")
+      data={}
+      data["users"]={}
+      save_data(data)
+    return data
+  except Exception as e:
+    log.error(get_exception_traceback_descr(e))
+    return None
 
 def process_command(user,room,cmd,formated_message,format_type,reply_to_id):
   global client
@@ -719,7 +728,7 @@ def send_notice(room_id,message):
   return True
 
 # Called when a message is recieved.
-def on_message(event):
+def on_message(room,event):
     global client
     global log
     global lock
@@ -800,17 +809,16 @@ def exception_handler(e):
   time.sleep(30)
 
 def main():
-    global client
-    global data
-    global log
-    global lock
+  global client
+  global data
+  global log
+  global config
 
-    lock = threading.RLock()
-
-    log.debug("try lock before main load_data()")
-    with lock:
-      log.debug("success lock before main load_data()")
-      data=load_data()
+  try:
+    data=load_data()
+    if data is None:
+      log.error("load_data()")
+      return False
 
     #FIXME отладка парсера
     #data["users"]["@progserega:matrix.org"]={}
@@ -821,40 +829,43 @@ def main():
     #sys.exit(1)
 
     log.info("try init matrix-client")
-    client = MatrixClient(conf.server)
+    # https://simple-matrix-bot-lib.readthedocs.io/en/latest/quickstart.html#quickstart
+    # Create a Creds object with your login credentials.
+    creds = botlib.Creds(config["main"]["server"], config["main"]["username"], config["main"]["password"],\
+      session_stored_file=config["main"]["session_stored_file"]\
+      )
+    # Create a bot object. This will be used as a handle throughout your project.
+    bot = botlib.Bot(creds)
     log.info("success init matrix-client")
 
-    try:
-        log.info("try login matrix-client")
-        client.login_with_password(username=conf.username, password=conf.password)
-        log.info("success login matrix-client")
-    except MatrixRequestError as e:
-        print(e)
-        log.debug(e)
-        if e.code == 403:
-            log.error("Bad username or password.")
-            sys.exit(4)
-        else:
-            log.error("Check your sever details are correct.")
-            sys.exit(2)
-    except MissingSchema as e:
-        log.error("Bad URL format.")
-        print(e)
-        log.debug(e)
-        sys.exit(3)
-
+    # Create a command by defining a function. The function must be an “async” function with two arguments.
+    # Recommended argument names are (room, message) or (room, event)
     log.info("try init listeners")
-    client.add_listener(on_message)
-    client.add_ephemeral_listener(on_event)
-    client.add_invite_listener(on_invite)
-#client.start_listener_thread()
-    # Слушанье сокета и пересоединение в случае сбоя:
-#client.listen_forever(timeout_ms=30000, exception_handler=exception_handler,bad_sync_timeout=5)
-    client.start_listener_thread(exception_handler=exception_handler)
-#client.listen_forever(timeout_ms=30000, exception_handler=exception_handler,bad_sync_timeout=5)
-    #client.listen_forever()
-    log.info("success init listeners")
 
+    @bot.listener.on_message_event
+    async def on_message_event(room, message):
+      on_message(room,message)
+
+    @bot.listener.on_custom_event
+    async def on_custom_event(room, message):
+      on_event(room,event)
+      # второй обработчик:
+      on_invite(room,event)
+
+    @bot.listener.on_startup
+    async def on_startup(room, message):
+      main_loop(room,event)
+      # второй обработчик:
+      on_invite(room,event)
+
+    log.info("success init listeners")
+  except Exception as e:
+    log.error(get_exception_traceback_descr(e))
+    return False
+
+async main_loop():
+  global log
+  try:
     x=0
     log.info("enter main loop")
     while True:
@@ -884,7 +895,9 @@ def main():
       #x+=1
       time.sleep(10)
     log.info("exit main loop")
-
+  except Exception as e:
+    log.error(get_exception_traceback_descr(e))
+    return False
 
 def get_event(log, client, room_id, event_id):
   log.debug("=== start function ===")
@@ -899,34 +912,43 @@ def get_event(log, client, room_id, event_id):
   """
   return client.api._send("GET", "/rooms/{}/event/{}".format(quote(room_id), quote(event_id)))
 
+def loadConfig(file_name):
+  config = configparser.ConfigParser()
+  config.read(file_name)
+  return config
+
 if __name__ == '__main__':
-  log= logging.getLogger("matrix_tomato_reminder_bot")
-  if conf.debug:
+  if len(sys.argv) < 2:
+    print("need 1 param - config file")
+    print("load default config: config.ini")
+    config=loadConfig("config.ini")
+  else:
+    config=loadConfig(sys.argv[1])
+
+  log=logging.getLogger("matrix_tomato_reminder_bot")
+  if config["logging"]["debug"].lower()=="yes":
     log.setLevel(logging.DEBUG)
   else:
     log.setLevel(logging.INFO)
 
   # create the logging file handler
-  #fh = logging.FileHandler(conf.log_path)
-  fh = logging.handlers.TimedRotatingFileHandler(conf.log_path, when=conf.log_backup_when, backupCount=conf.log_backup_count, encoding='utf-8')
+  #fh = logging.FileHandler(config.log_path)
+  fh = logging.handlers.TimedRotatingFileHandler(config["logging"]["log_path"], when=config["logging"]["log_backup_when"], backupCount=int(config["logging"]["log_backup_count"]), encoding='utf-8')
   formatter = logging.Formatter('%(asctime)s - %(name)s - %(filename)s:%(lineno)d - %(funcName)s() %(levelname)s - %(message)s')
   fh.setFormatter(formatter)
 
-  if conf.debug:
-    # логирование в консоль:
-    #stdout = logging.FileHandler("/dev/stdout")
-    stdout = logging.StreamHandler(sys.stdout)
-    stdout.setFormatter(formatter)
-    log.addHandler(stdout)
-
-
+  # логирование в консоль:
+  stdout = logging.StreamHandler(sys.stdout)
+  stdout.setFormatter(formatter)
+  log.addHandler(stdout)
 
   # add handler to logger object
   log.addHandler(fh)
 
   log.info("Program started")
-  if main() == False:
-    log.error("main()")
+  log.info("python version=%s"%sys.version)
+
+  if main()==False:
+    log.error("error main()")
     sys.exit(1)
-  else:
-    log.info("Program success exit")
+  log.info("Program SUCCESS exit")

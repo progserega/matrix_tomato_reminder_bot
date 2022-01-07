@@ -34,6 +34,7 @@ async def message_callback(room: nio.MatrixRoom, event: nio.RoomMessageText) -> 
         f"Message received in room {room.display_name}\n"
         f"{room.user_name(event.sender)} | {event.body}"
     )
+    sys.exit(0)
 
 async def main_loop():
   global log
@@ -42,6 +43,7 @@ async def main_loop():
     client = nio.AsyncClient(config["main"]["server"], config["main"]["username"])
     client.add_event_callback(message_callback, nio.RoomMessageText)
     ret = await client.login(config["main"]["password"],device_name=config["main"]["device_name"])
+    log.info(ret)
     if (isinstance(ret, nio.LoginResponse)):
       log.info("login success")
     else:

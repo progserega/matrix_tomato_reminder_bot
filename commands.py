@@ -20,6 +20,15 @@ client = None
 log = None
 db_bot_settings = {}
 
+week_days={
+  "понедельник":1,
+  "вторник":2,
+  "среду":3,
+  "четверг":4,
+  "пятницу":5,
+  "субботу":6,
+  "воскресенье":7
+}
 
 def get_exception_traceback_descr(e):
   if hasattr(e, '__traceback__'):

@@ -1,0 +1,43 @@
+[matrix]
+matrix_server = https://matrix.org
+matrix_login = bot_login
+matrix_passwd = secret
+# path to store sessin data:
+session_store_path = /var/spool/matrix_bot/session.json
+
+[storage]
+data_file = /var/spool/matrix_bot/data.json
+
+[time_pesets]
+morning = 7:00
+on_work = 8:00
+lunch_break = 12:00
+after_lunch = 13:00
+after_work = 17:00
+evening = 21:00
+
+[invites]
+# for disable some options - live in empty.
+# invite rules - who can invite this bot (mxid users and its domain) - this
+# options override all other options in this block:
+allow_users = @admin:matrix.org
+# allow whole domain (or all domains: *):
+allow_domains = *
+# disable some users. Also from allowed domains:
+deny_users = @baduser:matrix.org @baduser2:tt.net
+# can disable some domains if allow was by mask '*':
+deny_domains = spammers.com spammers2.net
+
+[logging]
+log_path = /var/log/matrix_bot/matrix_tomato_reminder_bot.log
+debug = yes
+# how match keep backup log files:
+log_backup_count = 30
+# can be:
+# 'S' - Seconds
+# 'M' - Minutes
+# 'H' - Hours
+# 'D' - Days
+# 'W0'-'W6' - Weekday (0=Monday)
+# 'midnight' - Roll over at midnight
+log_backup_when = midnight

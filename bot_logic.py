@@ -33,6 +33,16 @@ client = None
 log = None
 data = None
 
+week_days={
+  "понедельник":1,
+  "вторник":2,
+  "среду":3,
+  "четверг":4,
+  "пятницу":5,
+  "субботу":6,
+  "воскресенье":7
+}
+
 def init(log_param,config_param, client_param):
   global log
   global config

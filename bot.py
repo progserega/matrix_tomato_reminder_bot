@@ -26,7 +26,7 @@ import json
 import os
 import re
 import matrix_api
-import commands
+import bot_logic
 
 client = None
 config = None
@@ -165,6 +165,7 @@ async def invite_cb(room: nio.MatrixRoom, event: nio.InviteEvent):
 
 async def sync_cb(response):
   print(f"We synced, token: {response}")
+  bot_logic.proccess_alarms()
 
 async def message_cb(room, event):
   global config
@@ -176,6 +177,13 @@ async def message_cb(room, event):
     log.debug(room.room_id)
     #FIXME
     log.debug(event)
+    log.debug(event.source)
+    log.debug(event.formatted_body)
+    log.debug(event.body)
+    log.debug(event.format)
+    log.debug(event.msgtype)
+    log.debug(event.content)
+    log.debug(event.type)
     log.debug(room.power_levels)
 
     # проверяем, что обращаются к нам (значит команда):
@@ -183,13 +191,12 @@ async def message_cb(room, event):
     log.debug("nick_name=%s"%nick_name)
     if re.search('^ *%s *'%nick_name,event.body) is not None:
       command = re.sub('^ *%s *:* *'%nick_name, '', event.body)
-      if await commands.process_command(room, event, command) == False:
-        log.error("commands.process_command()")
+      if await bot_logic.process_command(room, event, command) == False:
+        log.error("bot_logic.process_command()")
         return False
 
     # обычное сообщение:
     log.debug("обычное сообщение от: %s"%event.sender)
-    # TODO
 
     if await matrix_api.set_read_marker(room,event) == False:
       log.error("matrix_api.set_read_marker()")
@@ -201,6 +208,20 @@ async def message_cb(room, event):
       log.error("write session to disk - at write_details_to_disk()")
       return False
 
+    return True
+  except Exception as e:
+    log.error(get_exception_traceback_descr(e))
+    return False
+
+def write_details_to_disk(session) -> None:
+  global config
+  global log
+  log.debug("start function")
+  try:
+    # open the config file in write-mode
+    with open(config["matrix"]["session_store_path"], "w") as f:
+      # write the login details to disk
+      json.dump(session,f)
     return True
   except Exception as e:
     log.error(get_exception_traceback_descr(e))
@@ -251,14 +272,17 @@ async def main():
     #client.add_event_callback(unknown_cb, nio.RoomMessage)
 
     # инициализация модулей:
-    if commands.init(log,config) == False:
-      log.error("commands.init()")
+    if bot_logic.init(log,config,client) == False:
+      log.error("bot_logic.init()")
       return False
-    log.info("commands.init()")
+    log.info("bot_logic.init()")
     if matrix_api.init(log,config,client) == False:
       log.error("matrix_api.init()")
       return False
     log.info("matrix_api.init()")
+    if bot_logic.init(log,config,client) == False:
+      log.error("bot_logic.init()")
+      return False
     # бесконечный внутренний цикл опроса состояния:
     if 'token' in session:
       await client.sync_forever(timeout=300,full_state=True,since=session['token'],loop_sleep_time=3000)

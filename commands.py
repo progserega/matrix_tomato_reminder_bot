@@ -40,11 +40,13 @@ def get_exception_traceback_descr(e):
   else:
     return e
 
-def init(log_param,config_param):
+def init(log_param,config_param,client_param):
   global log
   global config
+  global client
   log = log_param
   config = config_param
+  client = client_param
 
   # локализация. Стандартный вариант, без переключения локали на-лету. Опция языка берётся из переменных 
   # окружения LC_*:
@@ -58,7 +60,7 @@ def init(log_param,config_param):
   return True
 
 
-def process_command(user,room,cmd,formated_message,format_type,reply_to_id):
+async def process_command(user,room,cmd,formated_message,format_type,reply_to_id):
   global client
   global log
   global data

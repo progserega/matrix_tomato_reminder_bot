@@ -177,21 +177,47 @@ async def message_cb(room, event):
     log.debug(room.room_id)
     #FIXME
     log.debug(event)
-    log.debug(event.source)
+    log.debug(json.dumps(event.source, indent=4, sort_keys=True,ensure_ascii=False))
     log.debug(event.formatted_body)
     log.debug(event.body)
     log.debug(event.format)
-    log.debug(event.msgtype)
-    log.debug(event.content)
-    log.debug(event.type)
+   # log.debug(event.msgtype)
+    #log.debug(event.content)
+    #log.debug(event.type)
     log.debug(room.power_levels)
 
     # проверяем, что обращаются к нам (значит команда):
     nick_name = room.user_name(session["user_id"])
     log.debug("nick_name=%s"%nick_name)
-    if re.search('^ *%s *'%nick_name,event.body) is not None:
-      command = re.sub('^ *%s *:* *'%nick_name, '', event.body)
-      if await bot_logic.process_command(room, event, command) == False:
+    reply_to_id = None
+    if "m.relates_to" in event.source["content"]:
+      try:
+        reply_to_id = event.source["content"]["m.relates_to"]["m.in_reply_to"]["event_id"]
+      except:
+        log.error("bad formated event reply - skip")
+        matrix_api.send_message(room.room_id,"Внутренняя ошибка разбора сообщения - обратитесь к разработчику")
+        return False
+
+    proccess_command = False
+    log.debug("room member count = %d"%room.member_count)
+    if room.member_count > 2:
+      # если участников более 2-х, то к боту нужно обращаться по имени:
+      if re.search('^ *%s *'%nick_name,event.body) is not None:
+        command = re.sub('^ *%s *:* *'%nick_name, '', event.body)
+        # и тогда он воспримет команду
+        process_command = True
+    else:
+      # приватный чат на двоих с пользователем - воспринимаем все команды пользователя, не требуя 
+      # обращения по имени:
+      proccess_command = True
+    if proccess_command == True:
+      if await bot_logic.process_command(\
+          event.source["sender"],\
+          room,\
+          event.body,\
+          formated_message = event.formatted_body,\
+          format_type = event.format,\
+          reply_to_id = reply_to_id) == False:
         log.error("bot_logic.process_command()")
         return False
 

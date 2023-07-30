@@ -26,7 +26,7 @@ import json
 import pickle
 import os
 import re
-import matrix_api
+import matrix_api as ma
 
 config = None
 client = None
@@ -119,7 +119,7 @@ def load_data():
     log.error(get_exception_traceback_descr(e))
     return None
 
-def process_command(user,room,cmd,formated_message,format_type,reply_to_id):
+async def process_command(user,room,cmd,formated_message,format_type,reply_to_id):
   global client
   global log
   global data
@@ -129,6 +129,8 @@ def process_command(user,room,cmd,formated_message,format_type,reply_to_id):
   source_cmd=None
   source_event_text=None
 
+  log.debug("=== start function ===")
+
   try:
     if reply_to_id!=None and format_type=="org.matrix.custom.html" and formated_message!=None:
       # разбираем, чтобы получить исходное сообщение и ответ
@@ -137,7 +139,7 @@ def process_command(user,room,cmd,formated_message,format_type,reply_to_id):
         source_event=get_event(log, client, room, reply_to_id)
       except Exception as e:
         log.error(get_exception_traceback_descr(e))
-        send_message(room,"ошибка получения исходного сообщения с event_id=%s - обратитесь к разработчику."%reply_to_id)
+        await ma.send_text(room,"ошибка получения исходного сообщения с event_id=%s - обратитесь к разработчику."%reply_to_id)
         source_event=None
       if source_event != None:
         log.debug("success get source message by reply_to_id")
@@ -203,32 +205,32 @@ def process_command(user,room,cmd,formated_message,format_type,reply_to_id):
   напомни во вторник на работе сделать дело 
   напомни через 20 минут сними кашу 
   напомни послезавтра после работы сделать дело 
-  """ % {"morning":conf.morning, "lunch_break":conf.lunch_break, "after_work":conf.after_work, "evening":conf.evening}
-      return send_message(room,answer)
+  """ % {"morning":config["time_presets"]["morning"], "lunch_break":config["time_presets"]["lunch_break"], "after_work":config["time_presets"]["after_work"], "evening":config["time_presets"]["evening"]}
+      return await ma.send_text(room,answer)
 
     # язык:
     elif cmd == '!ru':
       cur_data["lang"]="ru"
-      return send_message(room,"Установил язык Русский")
+      return await ma.send_text(room,"Установил язык Русский")
     elif cmd == '!en':
       cur_data["lang"]="en"
-      return send_message(room,"Set language to English")
+      return await ma.send_text(room,"Set language to English")
     
     # Добавить Напоминалки:
     elif re.search('^!*alarm .*', cmd.lower()) is not None or \
       re.search('^!*напомни .*', cmd.lower()) is not None:
-      return process_alarm_cmd(user,room,cmd)
+      return await process_alarm_cmd(user,room,cmd)
 
     # повторение
     elif re.search('^!*retry .*', cmd.lower()) is not None and reply_to_id != None or \
       re.search('^!*повтори .*', cmd.lower()) is not None and reply_to_id != None:
-      return process_alarm_cmd(user,room,cmd)
+      return await process_alarm_cmd(user,room,cmd)
 
     # повторение
     elif re.search('^!*retry .*', cmd.lower()) is not None and reply_to_id == None or \
       re.search('^!*повтори .*', cmd.lower()) is not None and reply_to_id == None:
       answer="Выделите одно из моих напоминаний и в ответе напишите 'повторить дата/время'"
-      return send_message(room,answer)
+      return await ma.send_text(room,answer)
     
     # Просмотреть Напоминалки:
     elif re.search('^!*alarms', cmd.lower()) is not None or \
@@ -238,7 +240,7 @@ def process_command(user,room,cmd,formated_message,format_type,reply_to_id):
       re.search('^!*list', cmd.lower()) is not None or \
       re.search('^!*список', cmd.lower()) is not None or \
       re.search('^!*напоминания', cmd.lower()) is not None:
-      return process_alarm_list_cmd(user,room,cmd)
+      return await process_alarm_list_cmd(user,room,cmd)
 
     # простой числовой таймер (от пользователя передано только число):
     elif re.search('^!*[0-9]+$', cmd.lower()) is not None:
@@ -248,14 +250,14 @@ def process_command(user,room,cmd,formated_message,format_type,reply_to_id):
       except:
         log.warning("convert minutes to in in simple_timer prepare")
         return False
-      return process_simple_timer_cmd(user,room,minutes)
+      return await process_simple_timer_cmd(user,room,minutes)
 
     return True
   except Exception as e:
     log.error(get_exception_traceback_descr(e))
     return False
 
-def process_alarm_list_cmd(user,room,cmd):
+async def process_alarm_list_cmd(user,room,cmd):
   global data
   global client
   global log
@@ -270,7 +272,7 @@ def process_alarm_list_cmd(user,room,cmd):
       if alarm_timestamp > time_now:
         num+=1
     if num==0:
-      send_message(room,"На данный момент для Вас нет активных напоминаний")
+      await ma.send_text(room,"На данный момент для Вас нет активных напоминаний")
     else:
       html="<p><strong>Я напомню Вам о следующих событиях:</strong></p>\n<ul>\n"
       for item in cur_data["alarms"]:
@@ -288,14 +290,14 @@ def process_alarm_list_cmd(user,room,cmd):
     log.error(get_exception_traceback_descr(e))
     return False
 
-def parse_time(date_timestamp,pars,index,cur_data,cmd,room):
+async def parse_time(date_timestamp,pars,index,cur_data,cmd,room):
   try:
     log.debug("parse_time(), date_timestamp=%d, pars[index]='%s'"%(date_timestamp,pars[index]))
     if date_timestamp==0:
       date_timestamp=time.time()
     i=index
     if pars[i].lower()=='утром' or pars[i].lower()=='morning':
-      alarm_time=time.strptime(conf.morning, "%H:%M")
+      alarm_time=time.strptime(config["time_presets"]["morning"], "%H:%M")
       date_time = time.localtime(date_timestamp)
       cur_time=time.mktime(time.struct_time(date_time[:3] + alarm_time[3:]))
       text_index=i+1
@@ -305,22 +307,22 @@ def parse_time(date_timestamp,pars,index,cur_data,cmd,room):
       cur_time=time.mktime(time.struct_time(date_time[:3] + alarm_time[3:]))
       text_index=i+2
     elif pars[i].lower()=='в' and pars[i+1].lower()=='обед' or pars[i].lower()=='at' and pars[i+1].lower()=='lunch':
-      alarm_time=time.strptime(conf.lunch_break, "%H:%M")
+      alarm_time=time.strptime(config["time_presets"]["lunch_break"], "%H:%M")
       date_time = time.localtime(date_timestamp)
       cur_time=time.mktime(time.struct_time(date_time[:3] + alarm_time[3:]))
       text_index=i+2
     elif pars[i].lower()=='после' and pars[i+1].lower()=='обеда' or pars[i].lower()=='after' and pars[i+1].lower()=='lunch':
-      alarm_time=time.strptime(conf.after_lunch, "%H:%M")
+      alarm_time=time.strptime(config["time_presets"]["after_lunch"], "%H:%M")
       date_time = time.localtime(date_timestamp)
       cur_time=time.mktime(time.struct_time(date_time[:3] + alarm_time[3:]))
       text_index=i+2
     elif pars[i].lower()=='после' and pars[i+1].lower()=='работы' or pars[i].lower()=='after' and pars[i+1].lower()=='work':
-      alarm_time=time.strptime(conf.after_work, "%H:%M")
+      alarm_time=time.strptime(config["time_presets"]["after_work"], "%H:%M")
       date_time = time.localtime(date_timestamp)
       cur_time=time.mktime(time.struct_time(date_time[:3] + alarm_time[3:]))
       text_index=i+2
     elif pars[i].lower()=='вечером' or pars[i].lower()=='at' and pars[i+1].lower()=='evening':
-      alarm_time=time.strptime(conf.evening, "%H:%M")
+      alarm_time=time.strptime(config["time_presets"]["evening"], "%H:%M")
       date_time = time.localtime(date_timestamp)
       cur_time=time.mktime(time.struct_time(date_time[:3] + alarm_time[3:]))
       if pars[i].lower()=='вечером':
@@ -335,16 +337,16 @@ def parse_time(date_timestamp,pars,index,cur_data,cmd,room):
       except:
         log.error("error slplit pars[i+1] by : at cmd: %s"%cmd)
         if cur_data["lang"]=="ru":
-          send_message(room,"(1) Не смог распознать в команде '%s' слово '%s' как значение времени"%(cmd,pars[i+1]))
+          await ma.send_text(room,"(1) Не смог распознать в команде '%s' слово '%s' как значение времени"%(cmd,pars[i+1]))
         else:
-          send_message(room,"(1) error pars cmd: '%s' at '%s' as time"%(cmd,pars[i+1]))
+          await ma.send_text(room,"(1) error pars cmd: '%s' at '%s' as time"%(cmd,pars[i+1]))
         return None
       if len(time_tmp)<2 or len(time_tmp)>3:
         log.warning("error pars cmd: '%s' at '%s' as time"%(cmd,pars[i+1]))
         if cur_data["lang"]=="ru":
-          send_message(room,"(2) Не смог распознать в команде '%s' слово '%s' как значение времени"%(cmd,pars[i+1]))
+          await ma.send_text(room,"(2) Не смог распознать в команде '%s' слово '%s' как значение времени"%(cmd,pars[i+1]))
         else:
-          send_message(room,"(2) error pars cmd: '%s' at '%s' as time"%(cmd,pars[i+1]))
+          await ma.send_text(room,"(2) error pars cmd: '%s' at '%s' as time"%(cmd,pars[i+1]))
         return None
       try:
         alarm_time=0
@@ -357,9 +359,9 @@ def parse_time(date_timestamp,pars,index,cur_data,cmd,room):
       except:
         log.warning("error pars cmd: '%s' at '%s' as time"%(cmd,pars[i+1]))
         if cur_data["lang"]=="ru":
-          send_message(room,"(3) Не смог распознать в команде '%s' слово '%s' как значение времени"%(cmd,pars[i+1]))
+          await ma.send_text(room,"(3) Не смог распознать в команде '%s' слово '%s' как значение времени"%(cmd,pars[i+1]))
         else:
-          send_message(room,"(3) error pars cmd: '%s' at '%s' as time"%(cmd,pars[i+1]))
+          await ma.send_text(room,"(3) error pars cmd: '%s' at '%s' as time"%(cmd,pars[i+1]))
         return None
       text_index=i+2
     else:
@@ -374,7 +376,7 @@ def parse_time(date_timestamp,pars,index,cur_data,cmd,room):
     log.error(get_exception_traceback_descr(e))
     return False
 
-def process_alarm_cmd(user,room,cmd):
+async def process_alarm_cmd(user,room,cmd):
   global data
   global client
   global log
@@ -430,15 +432,15 @@ def process_alarm_cmd(user,room,cmd):
       except:
         log.error("error slplit pars[2] by : at cmd: %s"%cmd)
         if cur_data["lang"]=="ru":
-          send_message(room,"Не смог распознать в команде '%s' слово '%s' как значение времени"%(cmd,pars[i+1]))
+          await ma.send_text(room,"Не смог распознать в команде '%s' слово '%s' как значение времени"%(cmd,pars[i+1]))
         else:
-          send_message(room,"error pars cmd: '%s' at '%s' as time"%(cmd,pars[i+1]))
+          await ma.send_text(room,"error pars cmd: '%s' at '%s' as time"%(cmd,pars[i+1]))
       if len(time_tmp)<2 or len(time_tmp)>3:
         log.warning("error pars cmd: '%s' at '%s' as time"%(cmd,pars[i+1]))
         if cur_data["lang"]=="ru":
-          send_message(room,"Не смог распознать в команде '%s' слово '%s' как значение времени"%(cmd,pars[i+1]))
+          await ma.send_text(room,"Не смог распознать в команде '%s' слово '%s' как значение времени"%(cmd,pars[i+1]))
         else:
-          send_message(room,"error pars cmd: '%s' at '%s' as time"%(cmd,pars[i+1]))
+          await ma.send_text(room,"error pars cmd: '%s' at '%s' as time"%(cmd,pars[i+1]))
       else:
         try:
           alarm_time=0
@@ -453,9 +455,9 @@ def process_alarm_cmd(user,room,cmd):
         except:
           log.warning("error pars cmd: '%s' at '%s' as time"%(cmd,pars[i+1]))
           if cur_data["lang"]=="ru":
-            send_message(room,"Не смог распознать в команде '%s' слово '%s' как значение времени"%(cmd,pars[i+1]))
+            await ma.send_text(room,"Не смог распознать в команде '%s' слово '%s' как значение времени"%(cmd,pars[i+1]))
           else:
-            send_message(room,"error pars cmd: '%s' at '%s' as time"%(cmd,pars[i+1]))
+            await ma.send_text(room,"error pars cmd: '%s' at '%s' as time"%(cmd,pars[i+1]))
 
     #=====================  через несколько мирут, часов, дней, недель, месяцев, лет: =================
     elif pars[1].lower()=='через' or pars[1].lower()=='via':
@@ -465,9 +467,9 @@ def process_alarm_cmd(user,room,cmd):
       except:
         log.warning("error pars cmd: '%s' at '%s' as time"%(cmd,pars[2]))
         if cur_data["lang"]=="ru":
-          send_message(room,"Не смог распознать в команде '%s' слово '%s' как значение времени"%(cmd,pars[2]))
+          await ma.send_text(room,"Не смог распознать в команде '%s' слово '%s' как значение времени"%(cmd,pars[2]))
         else:
-          send_message(room,"error pars cmd: '%s' at '%s' as time"%(cmd,pars[2]))
+          await ma.send_text(room,"error pars cmd: '%s' at '%s' as time"%(cmd,pars[2]))
         return False
       factor=1
       if "мин" in pars[3] or "min" in pars[3]:
@@ -499,7 +501,7 @@ def process_alarm_cmd(user,room,cmd):
       log.debug("today process")
       cur_time=time.time()
       text_index=2
-      result=parse_time(cur_time,pars,text_index,cur_data,cmd,room)
+      result= await parse_time(cur_time,pars,text_index,cur_data,cmd,room)
       if result==None:
         log.warning("parse_time(%s)"%cmd)
       else:
@@ -512,7 +514,7 @@ def process_alarm_cmd(user,room,cmd):
       log.debug("tomorrow process")
       cur_time=time.time()+24*3600
       text_index=2
-      result=parse_time(cur_time,pars,text_index,cur_data,cmd,room)
+      result=await parse_time(cur_time,pars,text_index,cur_data,cmd,room)
       if result==None:
         log.warning("parse_time(%s)"%cmd)
       else:
@@ -524,7 +526,7 @@ def process_alarm_cmd(user,room,cmd):
     elif pars[1].lower()=='послезавтра':
       cur_time=time.time()+2*24*3600
       text_index=2
-      result=parse_time(cur_time,pars,text_index,cur_data,cmd,room)
+      result=await parse_time(cur_time,pars,text_index,cur_data,cmd,room)
       if result==None:
         log.warning("parse_time(%s)"%cmd)
       else:
@@ -550,7 +552,7 @@ def process_alarm_cmd(user,room,cmd):
 
       cur_time=time.time()+diff_day*24*3600
       text_index=3
-      result=parse_time(cur_time,pars,text_index,cur_data,cmd,room)
+      result=await parse_time(cur_time,pars,text_index,cur_data,cmd,room)
       if result==None:
         log.warning("parse_time(%s)"%cmd)
       else:
@@ -567,16 +569,16 @@ def process_alarm_cmd(user,room,cmd):
       except:
         log.error("error slplit pars[1] by : at cmd: %s"%cmd)
         if cur_data["lang"]=="ru":
-          send_message(room,"Не смог распознать в команде '%s' слово '%s' как значение даты"%(cmd,pars[1]))
+          await ma.send_text(room,"Не смог распознать в команде '%s' слово '%s' как значение даты"%(cmd,pars[1]))
         else:
-          send_message(room,"error pars cmd: '%s' at '%s' as date"%(cmd,pars[1]))
+          await ma.send_text(room,"error pars cmd: '%s' at '%s' as date"%(cmd,pars[1]))
         return False
       if len(date_tmp)<2 or len(date_tmp)>3:
         log.warning("error pars cmd: '%s' at '%s' as date"%(cmd,pars[1]))
         if cur_data["lang"]=="ru":
-          send_message(room,"Не смог распознать в команде '%s' слово '%s' как значение даты"%(cmd,pars[1]))
+          await ma.send_text(room,"Не смог распознать в команде '%s' слово '%s' как значение даты"%(cmd,pars[1]))
         else:
-          send_message(room,"error pars cmd: '%s' at '%s' as time"%(cmd,pars[1]))
+          await ma.send_text(room,"error pars cmd: '%s' at '%s' as time"%(cmd,pars[1]))
         return False
       try:
         alarm_time=0
@@ -602,7 +604,7 @@ def process_alarm_cmd(user,room,cmd):
           cur_time=time.mktime(time.struct_time(alarm_date[:3] + time_now[3:]))
 
         text_index=2
-        result=parse_time(cur_time,pars,text_index,cur_data,cmd,room)
+        result= await parse_time(cur_time,pars,text_index,cur_data,cmd,room)
         if result==None:
           log.warning("parse_time(%s)"%cmd)
         else:
@@ -612,13 +614,13 @@ def process_alarm_cmd(user,room,cmd):
       except:
         log.warning("error pars cmd: '%s' at '%s' as time"%(cmd,pars[i+1]))
         if cur_data["lang"]=="ru":
-          send_message(room,"Не смог распознать в команде '%s' слово '%s' как значение времени"%(cmd,pars[i+1]))
+          await ma.send_text(room,"Не смог распознать в команде '%s' слово '%s' как значение времени"%(cmd,pars[i+1]))
         else:
-          send_message(room,"error pars cmd: '%s' at '%s' as time"%(cmd,pars[i+1]))
+          await ma.send_text(room,"error pars cmd: '%s' at '%s' as time"%(cmd,pars[i+1]))
 
     else:
       #============== пробуем время без даты: ============
-      result=parse_time(0,pars,1,cur_data,cmd,room)
+      result=await parse_time(0,pars,1,cur_data,cmd,room)
       if result==None:
         log.warning("parse_time(%s)"%cmd)
       else:
@@ -629,9 +631,9 @@ def process_alarm_cmd(user,room,cmd):
     if success==False:
       # не смог распознать время:
       if cur_data["lang"]=="ru":
-        send_message(room,"Не смог распознать в команде '%s' слово '%s' как предлог"%(cmd,pars[1]))
+        await ma.send_text(room,"Не смог распознать в команде '%s' слово '%s' как предлог"%(cmd,pars[1]))
       else:
-        send_message(room,"error pars cmd: '%s' at '%s' as predicate"%(cmd,pars[1]))
+        await ma.send_text(room,"error pars cmd: '%s' at '%s' as predicate"%(cmd,pars[1]))
       return False
       
 
@@ -653,14 +655,14 @@ def process_alarm_cmd(user,room,cmd):
     # Сохраняем в файл данных:
     save_data(data)
     if cur_data["lang"]=="ru":
-      return send_notice(room,"Установил напоминание на %s, с текстом: '%s'"%(time.strftime("%Y.%m.%d-%T",time.localtime(cur_time)),alarm_text) )
+      return await ma.send_notice(room,"Установил напоминание на %s, с текстом: '%s'"%(time.strftime("%Y.%m.%d-%T",time.localtime(cur_time)),alarm_text) )
     else:
-      return send_notice(room,"set alarm at %s, with text: '%s'"%(time.strftime("%Y.%m.%d-%T",time.localtime(cur_time)),alarm_text) )
+      return await ma.send_notice(room,"set alarm at %s, with text: '%s'"%(time.strftime("%Y.%m.%d-%T",time.localtime(cur_time)),alarm_text) )
   except Exception as e:
     log.error(get_exception_traceback_descr(e))
     return False
 
-def process_simple_timer_cmd(user,room,timeout_minutes):
+async def process_simple_timer_cmd(user,room,timeout_minutes):
   global client
   global log
   global data
@@ -675,9 +677,9 @@ def process_simple_timer_cmd(user,room,timeout_minutes):
     # Сохраняем в файл данных:
     save_data(data)
     if cur_data["lang"]=="ru":
-      return send_notice(room,"Установил напоминание на %s, с текстом: '%s'"%(time.strftime("%Y.%m.%d-%T",time.localtime(cur_time)),alarm_text) )
+      return await ma.send_notice(room,"Установил напоминание на %s, с текстом: '%s'"%(time.strftime("%Y.%m.%d-%T",time.localtime(cur_time)),alarm_text) )
     else:
-      return send_notice(room,"set alarm at %s, with text: '%s'"%(time.strftime("%Y.%m.%d-%T",time.localtime(cur_time)),alarm_text) )
+      return await ma.send_notice(room,"set alarm at %s, with text: '%s'"%(time.strftime("%Y.%m.%d-%T",time.localtime(cur_time)),alarm_text) )
   except Exception as e:
     log.error(get_exception_traceback_descr(e))
     return False

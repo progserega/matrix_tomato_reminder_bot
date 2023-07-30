@@ -5,7 +5,7 @@ After=syslog.target network.target nss-lookup.target
 [Service]
 Type=simple
 ExecStartPre=/bin/true
-ExecStart=/opt/matrix_tomato_reminder_bot/matrix_tomato_reminder_bot.py
+ExecStart=/opt/matrix_tomato_reminder_bot/bot.py /opt/matrix_tomato_reminder_bot/config.ini
 ExecReload=/bin/kill -HUP ${MAINPID}
 WorkingDirectory=/opt/matrix_tomato_reminder_bot
 KillSignal=SIGTERM

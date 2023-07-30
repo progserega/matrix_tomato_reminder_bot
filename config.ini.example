@@ -8,7 +8,7 @@ session_store_path = /var/spool/matrix_bot/session.json
 [storage]
 data_file = /var/spool/matrix_bot/data.json
 
-[time_pesets]
+[time_presets]
 morning = 7:00
 on_work = 8:00
 lunch_break = 12:00

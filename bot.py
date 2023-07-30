@@ -71,7 +71,7 @@ def check_allow_invite(user):
           allow_mask=False
           log.info("user: %s from allow domain: %s - allow invite"%(user, domain))
           break
-        if allow_domain == '*':
+        if allow_domains_list == '*':
           allow=True
           allow_mask=True
           break
@@ -165,7 +165,8 @@ async def invite_cb(room: nio.MatrixRoom, event: nio.InviteEvent):
 
 async def sync_cb(response):
   print(f"We synced, token: {response}")
-  bot_logic.proccess_alarms()
+  if await bot_logic.proccess_alarms() == False:
+    log.error("bot_logic.proccess_alarms()")
 
 async def message_cb(room, event):
   global config

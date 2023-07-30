@@ -7,6 +7,7 @@ import logging
 from logging import handlers
 import sys
 import json
+import re
 import os
 import traceback
 import datetime
@@ -45,6 +46,32 @@ async def send_notice(room,text):
         "msgtype": "m.notice"
       }
   try:
+    resp = await client.room_send(room.room_id, message_type="m.room.message", content=content)
+    if isinstance(resp, nio.RoomMessagesError):
+      log.warning("client.room_send() failed with response = {resp}.")
+      return False
+    log.debug("send room.message successfully")
+  except Exception as e:
+    log.error(get_exception_traceback_descr(e))
+    log.error(f"send room.message failed.")
+    return False
+  return True
+
+async def send_html(room,formatted_body,body=None):
+  global config
+  global client
+  global log
+  try:
+    content = {
+          "formatted_body": formatted_body,
+          "msgtype": "m.text",
+          "format": "org.matrix.custom.html",
+        }
+    if body is not None:
+      content["body"]=body
+    else:
+      content["body"]=re.sub('<[a-zA-Z-_/]>','', formatted_body,0)
+
     resp = await client.room_send(room.room_id, message_type="m.room.message", content=content)
     if isinstance(resp, nio.RoomMessagesError):
       log.warning("client.room_send() failed with response = {resp}.")
@@ -116,4 +143,22 @@ async def set_read_marker(room,event):
     log.warning("room_read_markers failed with response = {resp}.")
     return False
   return True
+
+async def get_event(room,event_id):
+  global client
+  global log
+  try:
+    resp = await client.get_event(
+                  access_token=client.access_token,
+                  room_id=room.room_id,
+                  event_id=event_id
+              )
+    if isinstance(resp, nio.RoomReadMarkersError):
+      log.warning("room_read_markers failed with response = {resp}.")
+      return None
+  except Exception as e:
+    log.error(get_exception_traceback_descr(e))
+    log.warning("room_read_markers failed with response = {resp}.")
+    return None
+  return resp
 

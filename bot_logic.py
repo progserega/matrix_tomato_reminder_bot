@@ -136,7 +136,8 @@ async def process_command(user,room,cmd,formated_message,format_type,reply_to_id
       # разбираем, чтобы получить исходное сообщение и ответ
       # получаем цитируемое сообщение по его id:
       try:
-        source_event=get_event(log, client, room, reply_to_id)
+        source_event=await ma.get_event(room, reply_to_id)
+        log.debug(source_event)
       except Exception as e:
         log.error(get_exception_traceback_descr(e))
         await ma.send_text(room,"ошибка получения исходного сообщения с event_id=%s - обратитесь к разработчику."%reply_to_id)
@@ -285,7 +286,7 @@ async def process_alarm_list_cmd(user,room,cmd):
           alarm_string=time.strftime("%Y.%m.%d-%T",time.localtime(alarm_timestamp))
           html+="<li>%s: %s!</li>\n"%(alarm_string,text)
       html+="</ul>\n<p><em>Надеюсь ничего не забыл :-)</em></p>\n"
-      return send_html(room,html)
+      return await ma.send_html(room,html)
   except Exception as e:
     log.error(get_exception_traceback_descr(e))
     return False
@@ -684,25 +685,41 @@ async def process_simple_timer_cmd(user,room,timeout_minutes):
     log.error(get_exception_traceback_descr(e))
     return False
 
-def proccess_alarms():
+async def proccess_alarms():
   global log
   global data
+  try:
+    log.debug("=== start ===")
+    # FIXME
+    html="<p><strong>Напоминаю Вам:</strong></p>\n<ul>\n"
+    html+="<li>test</li>\n"
+    html+="</ul>\n"
+    #log.info("ret = %d"% await ma.send_html(room,html))
+    
+
+
+
   # Проверяем уведомления:
-  for user in data["users"]:
-    for room in data["users"][user]:
-      for item in data["users"][user][room]["alarms"]:
-        alarm_timestamp=item["time"]
-        alarm_text=item["text"]
-        time_now=time.time()
-        if alarm_timestamp < time_now:
-          # Уведомляем:
-          html="<p><strong>Напоминаю Вам:</strong></p>\n<ul>\n"
-          html+="<li>%s</li>\n"%alarm_text
-          html+="</ul>\n"
-          if send_html(room,html)==True:
-            data["users"][user][room]["alarms"].remove(item)
-            save_data(data)
-            break # выходим из текущего цикла, т.к. изменили количество в маассиве (валится в корку) - следующей проверкой проверим оставшиеся
-          else:
-            log.error("error send alarm at '%s' with text: '%s'"%(time.strftime("%Y.%m.%d-%T",time.localtime(alarm_timestamp)),alarm_text) )
+    for user in data["users"]:
+      for room in data["users"][user]:
+        for item in data["users"][user][room]["alarms"]:
+          alarm_timestamp=item["time"]
+          alarm_text=item["text"]
+          time_now=time.time()
+          if alarm_timestamp < time_now:
+            # Уведомляем:
+            log.info("send notify to %s"%user)
+            html="<p><strong>Напоминаю Вам:</strong></p>\n<ul>\n"
+            html+="<li>%s</li>\n"%alarm_text
+            html+="</ul>\n"
+            if await ma.send_html(room,html)==True:
+              data["users"][user][room]["alarms"].remove(item)
+              save_data(data)
+              break # выходим из текущего цикла, т.к. изменили количество в маассиве (валится в корку) - следующей проверкой проверим оставшиеся
+            else:
+              log.error("error send alarm at '%s' with text: '%s'"%(time.strftime("%Y.%m.%d-%T",time.localtime(alarm_timestamp)),alarm_text) )
+    return True
+  except Exception as e:
+    log.error(get_exception_traceback_descr(e))
+    return False
 

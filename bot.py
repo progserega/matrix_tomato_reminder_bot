@@ -126,7 +126,7 @@ async def sync():
     log.error(get_exception_traceback_descr(e))
     return None
 
-async def invite_cb(room: nio.MatrixRoom, event: nio.InviteEvent):
+async def invite_cb(room,event):
   global config
   global client
   global log

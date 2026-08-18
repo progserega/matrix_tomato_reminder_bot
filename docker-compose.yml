@@ -15,9 +15,8 @@ services:
       - MATRIX_DEVICE_ID=TOMATO_BOT
       - DEBUG_MODE=no
     volumes:
-      - bot_data:/var/spool/matrix_bot
-      - bot_logs:/var/log/matrix_bot
+      # Привязка к директориям на хосте вместо Docker volumes
+      - /opt/matrix_tomato_reminder_bot/data:/var/spool/matrix_bot
+      - /opt/matrix_tomato_reminder_bot/logs:/var/log/matrix_bot
 
-volumes:
-  bot_data:
-  bot_logs:
+volumes: {}

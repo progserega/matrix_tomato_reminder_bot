@@ -1,0 +1,20 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Устанавливаем зависимости (имя файла с опечаткой сохранено как в оригинальном репозитории)
+COPY requements.txt .
+RUN pip install --no-cache-dir -r requements.txt
+
+# Копируем исходный код бота
+COPY . .
+
+# Копируем скрипт точки входа и даем права на исполнение
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+# Создаем директории для хранения данных сессии, задач и логов
+RUN mkdir -p /var/spool/matrix_bot /var/log/matrix_bot
+
+# Указываем скрипт как точку входа
+ENTRYPOINT ["/entrypoint.sh"]

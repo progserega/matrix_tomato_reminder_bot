@@ -10,7 +10,7 @@ RUN pip install --no-cache-dir -r requements.txt
 COPY . .
 
 # Копируем скрипт точки входа и даем права на исполнение
-COPY entrypoint.sh /entrypoint.sh
+COPY docker/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
 # Создаем директории для хранения данных сессии, задач и логов

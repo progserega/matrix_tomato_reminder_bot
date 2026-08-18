@@ -1,1 +1,4 @@
 matrix-nio
+asyncio
+uuid
+configparser

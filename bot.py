@@ -14,6 +14,7 @@
 
 import asyncio
 import nio
+import uuid
 import configparser
 
 import sys
@@ -25,6 +26,7 @@ import datetime
 import json
 import os
 import re
+import sys
 import matrix_api
 import bot_logic
 
@@ -262,18 +264,41 @@ async def main():
   session = {}
 
   try:
-    # If there are no previously-saved credentials, we'll use the password
+    # If there are no previously-saved credentials, we'll use the password or token
     if not os.path.exists(config["matrix"]["session_store_path"]):
       client = nio.AsyncClient(config["matrix"]["matrix_server"], config["matrix"]["matrix_login"])
 
-      resp = await client.login(config["matrix"]["matrix_passwd"])
-      # check that we logged in succesfully
-      if isinstance(resp, nio.LoginResponse):
-        session["homeserver"] = config["matrix"]["matrix_server"]  # e.g. "https://matrix.example.org"
-        session["user_id"] = resp.user_id  # e.g. "@user:example.org"
-        session["device_id"] = resp.device_id  # device ID, 10 uppercase letters
-        session["access_token"] = resp.access_token  # cryptogr. access token
-        log.info("login by password")
+      # Поддержка авторизации через токен совместимости (MAS / OAuth2)
+      if config["matrix"].get("matrix_token"):
+          log.info("Инициализация через токен совместимости (MAS)")
+          client.access_token = config["matrix"]["matrix_token"]
+          client.user_id = config["matrix"]["matrix_login"]
+          client.device_id = config["matrix"].get("matrix_device_id", "TOMATO_" + str(uuid.uuid4())[:8].upper())
+          
+          session["homeserver"] = config["matrix"]["matrix_server"]
+          session["user_id"] = client.user_id
+          session["device_id"] = client.device_id
+          session["access_token"] = client.access_token
+          log.info("Успешная инициализация по токену")
+      else:
+          # Классическая авторизация по паролю
+          log.info("Инициализация через пароль")
+          resp = await client.login(config["matrix"]["matrix_passwd"])
+          if isinstance(resp, nio.LoginResponse):
+              session["homeserver"] = config["matrix"]["matrix_server"]
+              session["user_id"] = resp.user_id
+              session["device_id"] = resp.device_id
+              session["access_token"] = resp.access_token
+              log.info("Успешный вход по паролю")
+          else:
+              log.error(f"Ошибка входа по паролю: {resp}")
+              return
+
+      # Сохраняем сессию в файл для последующих запусков
+      with open(config["matrix"]["session_store_path"], "w") as f:
+          json.dump(session, f)
+      log.info("Сессия успешно сохранена")
+      
     else:
       # open the file in read-only mode
       with open(config["matrix"]["session_store_path"], "r") as f:

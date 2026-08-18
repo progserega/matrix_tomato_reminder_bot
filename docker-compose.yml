@@ -4,21 +4,17 @@ services:
   matrix_tomato_reminder_bot:
     build:
       context: .
-      dockerfile: docker/dockerfile
+      dockerfile: Dockerfile
     container_name: matrix_tomato_reminder_bot
     restart: unless-stopped
     environment:
-      # Адрес сервера Matrix (по умолчанию https://matrix.org)
       - MATRIX_SERVER=https://matrix.org
-      # Полный ID бота (например, @my_bot:matrix.org)
-      - MATRIX_LOGIN=@your_bot_username:matrix.org
-      # Пароль бота
-      - MATRIX_PASSWORD=your_super_secret_password
-      # Режим отладки (yes или no)
+      - MATRIX_LOGIN=@your_bot:example.com
+      - MATRIX_PASSWORD=
+      - MATRIX_TOKEN=your_mas_compatibility_token_here
+      - MATRIX_DEVICE_ID=TOMATO_BOT
       - DEBUG_MODE=no
     volumes:
-      # Именованные тома для сохранения данных между перезапусками
-      # Файл config.ini больше не монтируется, он создается внутри контейнера
       - bot_data:/var/spool/matrix_bot
       - bot_logs:/var/log/matrix_bot
 

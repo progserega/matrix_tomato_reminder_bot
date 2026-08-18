@@ -3,12 +3,13 @@ set -e
 
 echo "Генерация config.ini из переменных окружения..."
 
-# Создаем файл конфигурации на лету с использованием значений по умолчанию там, где это уместно
 cat <<EOF > /app/config.ini
 [matrix]
 matrix_server = ${MATRIX_SERVER:-https://matrix.org}
 matrix_login = ${MATRIX_LOGIN}
-matrix_passwd = ${MATRIX_PASSWORD}
+matrix_passwd = ${MATRIX_PASSWORD:-}
+matrix_token = ${MATRIX_TOKEN:-}
+matrix_device_id = ${MATRIX_DEVICE_ID:-TOMATO_BOT}
 session_store_path = /var/spool/matrix_bot/session.json
 
 [storage]
@@ -22,7 +23,4 @@ log_backup_when = midnight
 EOF
 
 echo "Конфигурация создана. Запуск бота..."
-
-# exec заменяет текущий процесс оболочки на процесс Python, 
-# что позволяет корректно обрабатывать сигналы остановки (SIGTERM) от Docker
 exec python bot.py /app/config.ini

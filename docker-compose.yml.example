@@ -14,9 +14,14 @@ services:
       - MATRIX_TOKEN=your_mas_compatibility_token_here
       - MATRIX_DEVICE_ID=TOMATO_BOT
       - DEBUG_MODE=no
+      - ALLOW_DOMAINS=*
+      - ALLOW_USERS=@admin:matrix.org
+      - DENY_USERS=@baduser:matrix.org @baduser2:tt.net
+      - DENY_DOMAINS=spammers.com spammers2.net
     volumes:
       # Привязка к директориям на хосте вместо Docker volumes
       - /opt/matrix_tomato_reminder_bot/data:/var/spool/matrix_bot
       - /opt/matrix_tomato_reminder_bot/logs:/var/log/matrix_bot
+      - /opt/matrix_tomato_reminder_bot/config:/app/config
 
 volumes: {}

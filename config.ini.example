@@ -2,6 +2,8 @@
 matrix_server = https://matrix.org
 matrix_login = bot_login
 matrix_passwd = secret
+matrix_token = 
+matrix_device_id = TOMATO_BOT
 # path to store sessin data:
 session_store_path = /var/spool/matrix_bot/session.json
 
